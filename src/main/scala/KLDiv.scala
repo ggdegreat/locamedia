@@ -1,4 +1,4 @@
-package opennlp.wikigrounder
+package opennlp.geomedia
 
 import math.{log, sqrt}
 

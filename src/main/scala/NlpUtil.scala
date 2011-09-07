@@ -1,4 +1,4 @@
-package opennlp.wikigrounder
+package opennlp.geomedia
 
 import collection.mutable
 // from __future__ import with_statement // For chompopen(), uchompopen()

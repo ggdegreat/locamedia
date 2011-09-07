@@ -1,14 +1,14 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>opennlp.wikigrounder</groupId>
-  <artifactId>wikigrounder</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <groupId>opennlp.geomedia</groupId>
+  <artifactId>geomedia</artifactId>
+  <version>0.01</version>
   <name>${project.artifactId}</name>
-  <description>My wonderfull scala app</description>
+  <description>GeoMedia -- geolocation for social media</description>
   <inceptionYear>2010</inceptionYear>
   <licenses>
     <license>
-      <name>My License</name>
+      <name>New BSD License</name>
       <url>http://....</url>
       <distribution>repo</distribution>
     </license>

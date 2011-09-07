@@ -1,4 +1,4 @@
-package opennlp.wikigrounder
+package opennlp.geomedia
 
 import NlpUtil._
 import util.control.Breaks._
