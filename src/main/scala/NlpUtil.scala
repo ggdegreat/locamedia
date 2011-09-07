@@ -1,4 +1,4 @@
-package opennlp.geomedia
+package opennlp.locamedia
 
 import collection.mutable
 // from __future__ import with_statement // For chompopen(), uchompopen()

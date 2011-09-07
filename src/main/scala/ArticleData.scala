@@ -1,4 +1,4 @@
-package opennlp.geomedia
+package opennlp.locamedia
 
 import NlpUtil._
 import util.control.Breaks._
