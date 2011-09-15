@@ -25,10 +25,10 @@ object ArticleData {
   def read_article_data_file(filename:String, process:Map[String,String]=>Unit,
                              maxtime:Double=0.0) = {
     errprint("Reading article data from %s...", filename)
-    status = StatusMessage("article")
+    val status = StatusMessage("article")
 
     val fi = Source.fromFile(filename).getLines()
-    fields = fi.next().split('\t')
+    val fields = fi.next().split('\t')
     for (line <- fi) breakable {
       val fieldvals = line.split('\t')
       if (fieldvals.length != field_types.length)
@@ -38,7 +38,7 @@ object ArticleData {
                          fieldvals.length, line)
       else
         process((fields zip fieldvals).toMap)
-      if status.item_processed(maxtime=maxtime)
+      if (status.item_processed(maxtime=maxtime))
         break
     }
     errprint("Finished reading %s articles.", status.num_processed())
@@ -46,7 +46,7 @@ object ArticleData {
     fields
   }
 
-  def write_article_data_file(outfile, outfields, articles) {
+  def write_article_data_file(outfile:File, outfields:Seq[String], articles:Iterable[Article]) {
     uniprint(outfields mkString "\t", outfile=outfile)
     for (art <- articles)
       uniprint(art.get_fields(outfields) mkString "\t", outfile=outfile)
@@ -92,12 +92,13 @@ object Article {
   // else return a tuple (SHORTFORM, None).
   
   def compute_short_form(name: String) {
-    if rematch("(.*?), (.*)$", name):
-      return (m_[1], m_[2])
-    elif rematch("(.*) \(.*\)$", name):
-      return (m_[1], None)
-    else:
-      return (name, None)
+    val includes_div_re = """(.*?), (.*)$""".r
+    val includes_parentag_re = """(.*) \(.*\)$""".r
+    name match {
+      case includes_div_re(tucson, arizona) => (tucson, arizona)
+      case includes_parentag_re(tucson, city) => (tucson, null)
+      case _ => (name, null)
+    }
   }
 
   def adjust_incoming_links(links: Double) = {
@@ -110,12 +111,12 @@ object Article {
     val ail =
       incoming_links match {
         case None => {
-          if debug("some")
+          if (debug("some"))
             warning("Strange, %s has no link count", obj)
           0
         }
         case Some(il) => {
-          if debug("some")
+          if (debug("some"))
             errprint("--> Link count is %s", il)
           il
         }
@@ -124,8 +125,6 @@ object Article {
   }
 }
 
-}
-  
 // A Wikipedia article.  Defined fields:
 //
 //   title: Title of article.
@@ -223,7 +222,7 @@ object Article {
   def put_int_or_blank(foo:Option[Int]) = {
     foo match {
       case None => ""
-      case Option[x] => x.toString
+      case Some(x) => x.toString
     }
   }
 }

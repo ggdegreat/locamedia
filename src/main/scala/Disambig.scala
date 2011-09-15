@@ -1,5 +1,3 @@
-/
-
 ////////
 //////// Disambig.scala
 ////////
@@ -56,22 +54,22 @@ object Disambig {
       errprint("%s%s", indstr, struct)
     else {
       if (struct(0).isInstanceOf[String]) {
-        errprint("%s%s:", indstr, struct[0])
+        errprint("%s%s:", indstr, struct(0))
         indstr += "  "
         indent += 2
-        struct = struct[1:]
+        struct = struct.slice(1)
       }
       for (s <- struct) {
         if (isinstance(s, Seq))
           print_structure(s, indent + 2)
         else if (isinstance(s, tuple)) {
-          (key, val) = s
-          if (isinstance(val, Seq)) {
+          val (key, value) = s
+          if (isinstance(value, Seq)) {
             errprint("%s%s:", indstr, key)
-            print_structure(val, indent + 2)
+            print_structure(value, indent + 2)
           }
           else
-            errprint("%s%s: %s", indstr, key, val)
+            errprint("%s%s: %s", indstr, key, value)
         }
         else
           errprint("%s%s", indstr, s)
@@ -291,39 +289,39 @@ object Distances {
 // convex hull or more complex model.
 
 class Boundary(botleft:Coord, topright:Coord) {
-  def toString(self) = {
-    "%s-%s" format (self.botleft, self.topright)
+  def toString() = {
+    "%s-%s" format (botleft, topright)
   }
 
-  def __repr__(self)  = {
-    "Boundary(%s)" format self.toString()
+  def __repr__()  = {
+    "Boundary(%s)" format toString()
   }
 
-  def struct(self) = {
-    List("Boundary", ("boundary", "%s-%s" format (self.botleft, self.topright)))
+  def struct() = {
+    List("Boundary", ("boundary", "%s-%s" format (botleft, topright)))
   }
 
-  def contains(self, coord:Coord) = {
-    if !(coord.lat >= self.botleft.lat && coord.lat <= self.topright.lat)
+  def contains(coord:Coord) = {
+    if (!(coord.lat >= botleft.lat && coord.lat <= topright.lat))
       false
-    if (self.botleft.long <= self.topright.long)
-      (coord.long >= self.botleft.long && coord.long <= self.topright.long)
-    else
+    if (botleft.long <= topright.long)
+      (coord.long >= botleft.long && coord.long <= topright.long)
+    else {
       // Handle case where boundary overlaps the date line.
-      (coord.long >= self.botleft.long &&
-       coord.long <= self.topright.long + 360.) ||
-      (coord.long >= self.botleft.long - 360. &&
-       coord.long <= self.topright.long)
+      (coord.long >= botleft.long &&
+       coord.long <= topright.long + 360.) ||
+      (coord.long >= botleft.long - 360. &&
+       coord.long <= topright.long)
     }
   }
 
-  def square_area(self) = {
-    var (lat1, lon1) = (self.botleft.lat, self.botleft.long)
-    var (lat2, lon2) = (self.topright.lat, self.topright.long)
-    lat1 = (lat1 / 180.) * Pi
-    lat2 = (lat2 / 180.) * Pi
-    lon1 = (lon1 / 180.) * Pi
-    lon2 = (lon2 / 180.) * Pi
+  def square_area() = {
+    var (lat1, lon1) = (botleft.lat, botleft.long)
+    var (lat2, lon2) = (topright.lat, topright.long)
+    val lat1 = (lat1 / 180.) * Pi
+    val lat2 = (lat2 / 180.) * Pi
+    val lon1 = (lon1 / 180.) * Pi
+    val lon2 = (lon2 / 180.) * Pi
 
     (earth_radius_in_miles ** 2) *
      abs(sin(lat1) - sin(lat2)) *
@@ -333,9 +331,9 @@ class Boundary(botleft:Coord, topright:Coord) {
   // Iterate over the regions that overlap the boundary.  If
   // 'nonempty_word_dist' is true, only yield regions with a non-empty
   // word distribution; else, yield all non-empty regions.
-  def iter_nonempty_tiling_regions(self) {
-    val (latind1, longind1) = coord_to_tiling_region_indices(self.botleft)
-    val (latind2, longind2) = coord_to_tiling_region_indices(self.topright)
+  def iter_nonempty_tiling_regions() {
+    val (latind1, longind1) = coord_to_tiling_region_indices(botleft)
+    val (latind2, longind2) = coord_to_tiling_region_indices(topright)
     for {i <- latind1 to latind2 view
          val it = if (longind1 <= longind2) longind1 to longind2 view
                   else (longind1 to maximum_longind view) ++
@@ -364,16 +362,16 @@ class RegionWordDist extends WordDist {
   val incoming_links = 0
   val num_arts_for_word_dist = 0
 
-  def is_empty_for_word_dist(self) = self.num_arts_for_word_dist == 0
+  def is_empty_for_word_dist() = num_arts_for_word_dist == 0
 
-  def is_empty(self) = self.num_arts_for_links == 0
+  def is_empty() = num_arts_for_links == 0
 
   // Add the given articles to the total distribution seen so far
-  def add_articles(self, articles:Iterable[Article]) {
+  def add_articles(articles:Iterable[Article]) {
     var this_incoming_links = 0
     if (debug("lots"))
       errprint("Region dist, number of articles = %s", num_arts_for_word_dist)
-    val old_total_tokens = self.total_tokens
+    val old_total_tokens = total_tokens
     var this_num_arts_for_links = 0
     var this_num_arts_for_word_dist = 0
     for (art <- articles) {
@@ -389,55 +387,56 @@ class RegionWordDist extends WordDist {
       } else {
         assert(art.dist.finished)
         if (art.split == "training") {
-          self.add_word_distribution(art.dist)
+          add_word_distribution(art.dist)
           this_num_arts_for_word_dist += 1
         }
       }
     }
-    self.num_arts_for_links += this_num_arts_for_links
-    self.num_arts_for_word_dist = this_num_arts_for_word_dist
-    self.incoming_links += this_incoming_links
+    num_arts_for_links += this_num_arts_for_links
+    num_arts_for_word_dist = this_num_arts_for_word_dist
+    incoming_links += this_incoming_links
     if (this_num_arts_for_word_dist && debug("lots")) {
       errprint("""--> Finished processing, number articles handled = %s/%s,
     skipped articles = %s, total tokens = %s/%s, incoming links = %s/%s""",
                this_num_arts_for_word_dist,
-               self.num_arts_for_word_dist,
+               num_arts_for_word_dist,
                this_num_arts_for_links - this_num_arts_for_word_dist,
-               self.total_tokens - old_total_tokens,
-               self.total_tokens, this_incoming_links, self.incoming_links)
+               total_tokens - old_total_tokens,
+               total_tokens, this_incoming_links, incoming_links)
     }
   }
 
-  def add_locations(self, locs:Iterable[Article]) {
+  def add_locations(locs:Iterable[Article]) {
     val arts = for (loc <- locs if loc.artmatch) yield loc.artmatch
-    self.add_articles(arts)
+    add_articles(arts)
   }
 
-  def finish(self, minimum_word_count:Int=0) {
-    super(RegionWordDist, self).finish(minimum_word_count=minimum_word_count)
+  def finish(minimum_word_count:Int=0) {
+    super.finish(minimum_word_count=minimum_word_count)
 
-    if debug("lots")
+    if (debug("lots")) {
       errprint("""For region dist, num articles = %s, total tokens = %s,
     unseen_mass = %s, incoming links = %s, overall unseen mass = %s""",
-               self.num_arts_for_word_dist, self.total_tokens,
-               self.unseen_mass, self.incoming_links,
-               self.overall_unseen_mass)
+               num_arts_for_word_dist, total_tokens,
+               unseen_mass, incoming_links,
+               overall_unseen_mass)
+    }
   }
 
   // For a document described by its distribution 'worddist', return the
   // log probability log p(worddist|reg) using a Naive Bayes algorithm.
-  def get_nbayes_logprob(self, worddist:WordDist) = {
+  def get_nbayes_logprob(worddist:WordDist) = {
     val logprob = 0.0
     for ((word, count) <- worddist.counts.iteritems()) {
-      val val = self.lookup_word(word)
-      if (val <= 0) {
+      val value = lookup_word(word)
+      if (value <= 0) {
         // FIXME: Need to figure out why this happens (perhaps the word was
         // never seen anywhere in the training data? But I thought we have
         // a case to handle that) and what to do instead.
-        errprint("Warning! For word %s, prob %s out of range", word, val)
+        errprint("Warning! For word %s, prob %s out of range", word, value)
       }
       else
-        logprob += log(val)
+        logprob += log(value)
     }
     // FIXME: Also use baseline (prior probability)
     logprob
@@ -484,7 +483,7 @@ class RegionDist(word:String=null,
       /// pathologies when trying to do things like "normalize".
       //if (prob == 0.0)
       //  prob = 1e-50
-      self.regionprobs[reg] = prob
+      regionprobs(reg) = prob
       totalprob += prob
     }
     // Normalize the probabilities; but if all probabilities are 0, then
@@ -493,32 +492,32 @@ class RegionDist(word:String=null,
     // that aren't seen.  In other circumstances, the smoothing ought to
     // ensure that 0 probabilities don't exist?  Anything else I missed?)
     if (totalprob != 0) {
-      self.normalized = true
-      for ((reg, prob) <- self.regionprobs.iteritems())
-        self.regionprobs[reg] /= totalprob
+      normalized = true
+      for ((reg, prob) <- regionprobs.iteritems())
+        regionprobs(reg) /= totalprob
     }
     else
-      self.normalized = false
+      normalized = false
   }
 
   if (word != null) init()
 
-  def get_ranked_regions(self) = {
+  def get_ranked_regions() = {
     // sort by second element of tuple, in reverse order
-    self.regionprobs sortWith(_._2 > _._2)
+    regionprobs sortWith(_._2 > _._2)
   }
   // Convert region to a KML file showing the distribution
-  def generate_kml_file(self, filename:String) {
+  def generate_kml_file(filename:String) {
     val xform = if (Opts.kml_transform == "log") x => log(x)
       else if (Opts.kml_transform == "logsquared") x => -log(x)*log(x)
       else x => x
 
-    val minxformprob = xform(self.regionprobs.values min)
-    val maxxformprob = xform(self.regionprobs.values max)
+    val minxformprob = xform(regionprobs.values min)
+    val maxxformprob = xform(regionprobs.values max)
 
     // Generate KML for a single region
     def one_reg_kml(reg:StatRegion, prob:Double) = {
-      val (latind, longind) = reg.latind, reg.longind
+      val (latind, longind) = (reg.latind, reg.longind)
       val offprob = xform(prob) - minxformprob
       val fracprob = offprob / (maxxformprob - minxformprob)
       val swcoord = stat_region_indices_to_near_corner_coord(latind, longind)
@@ -535,6 +534,8 @@ class RegionDist(word:String=null,
       val name = if (reg.most_popular_article) reg.most_popular_article.title else ""
 
       // Placemark indicating name
+      // !!PY2SCALA: BEGIN_PASSTHRU
+      // Because it tries to frob the # sign
       val name_placemark = 
         <Placemark>
           <name>{name}</name>,
@@ -554,12 +555,13 @@ class RegionDist(word:String=null,
             <coordinates>{"%s,%s" format (center.long, center.lat)}</coordinates>
           </Point>
         </Placemark>
+      // !!PY2SCALA: END_PASSTHRU
 
       // Interpolate colors
       val color = Array(0, 0, 0)
       for (i <- 1 to 3) {
-        color[i] = (kml_mincolor[i] +
-            fracprob*(kml_maxcolor[i] - kml_mincolor[i]))
+        color(i) = (kml_mincolor(i) +
+            fracprob*(kml_maxcolor(i) - kml_mincolor(i)))
       }
       // Original color dc0155ff
       //rgbcolor = "dc0155ff"
@@ -567,6 +569,7 @@ class RegionDist(word:String=null,
 
       // Yield cylinder indicating probability by height and color
 
+      // !!PY2SCALA: BEGIN_PASSTHRU
       val cylinder_placemark =
         <Placemark>
           <name>{"%s POLYGON" format name}</name>
@@ -579,7 +582,7 @@ class RegionDist(word:String=null,
             </Style>
             <Polygon>
               <extrude>1</extrude>
-              <tessellate>1</tesselate>
+              <tessellate>1</tessellate>
               <altitudeMode>relativeToGround</altitudeMode>
               <outerBoundaryIs>
                 <LinearRing>
@@ -588,11 +591,12 @@ class RegionDist(word:String=null,
               </outerBoundaryIs>
             </Polygon>
           </Placemark>
+      // !!PY2SCALA: END_PASSTHRU
       List(name_placemark, cylinder_placemark)
     }
 
     def yield_reg_kml() {
-      for {(reg, prob) <- self.regionprobs
+      for {(reg, prob) <- regionprobs
           kml <- one_reg_kml(reg, prob)
           expr <- kml} yield expr
     }
@@ -650,7 +654,7 @@ object RegionDist {
     if (cached_dists == null)
       cached_dists = LRUCache(maxsize=Opts.lru_cache_size)
     cached_dists.get(word) match {
-      case Some[dist] => dist
+      case Some(dist) => dist
       case null => {
         val dist = new RegionDist(word)
         cached_dists(word) = dist
@@ -662,16 +666,16 @@ object RegionDist {
   // Return a region distribution over a distribution over words.  This works
   // by adding up the distributions of the individual words, weighting by
   // the count of the each word.
-  def get_region_dist_for_word_dist(cls, worddist:WordDist) = {
+  def get_region_dist_for_word_dist(worddist:WordDist) = {
     val regprobs = gendoublemap[RegionDist]()
     for ((word, count) <- worddist.counts) {
-      val dist = cls.get_region_dist(word)
+      val dist = get_region_dist(word)
       for ((reg, prob) <- dist.regionprobs)
-        regprobs[reg] += count*prob
+        regprobs(reg) += count*prob
     }
     val totalprob = sum(regprobs.values())
     for ((reg, prob) <- regprobs)
-      regprobs[reg] /= totalprob
+      regprobs(reg) /= totalprob
     RegionDist(regionprobs=regprobs)
   }
 }
@@ -693,83 +697,85 @@ object RegionDist {
 //   worddist: Distribution corresponding to region.
 
 class StatRegion(latind:Int, longind:Int) {
-  val self.worddist = RegionWordDist()
-  val self.most_popular_article:Article = null
-  val self.mostpopart_links = 0
+  val worddist = RegionWordDist()
+  val most_popular_article:Article = null
+  val mostpopart_links = 0
 
-  def boundstr(self) = {
-    if (self.latind != null) {
-      val near = stat_region_indices_to_near_corner_coord(self.latind, self.longind)
-      val far = stat_region_indices_to_far_corner_coord(self.latind, self.longind)
+  def boundstr() = {
+    if (latind != null) {
+      val near = stat_region_indices_to_near_corner_coord(latind, longind)
+      val far = stat_region_indices_to_far_corner_coord(latind, longind)
       "%s-%s" format (near, far)
     }
     else "nowhere"
   }
 
-  def toString(self) = {
-    val unfinished = "" if self.worddist.finished else ", unfinished"
+  def toString() = {
+    val unfinished = if worddist.finished "" else ", unfinished"
     val contains = 
-      if (self.most_popular_article)
+      if (most_popular_article)
          ", most-pop-art %s(%d links)" format (
-           self.most_popular_article, self.mostpopart_links)
+           most_popular_article, mostpopart_links)
       else ""
 
     "StatRegion(%s%s%s, %d articles(dist), %d articles(links), %d links)" format (
-        self.boundstr(), unfinished, contains,
-        self.worddist.num_arts_for_word_dist, self.worddist.num_arts_for_links,
-        self.worddist.incoming_links)
+        boundstr(), unfinished, contains,
+        worddist.num_arts_for_word_dist, worddist.num_arts_for_links,
+        worddist.incoming_links)
   }
 
-  def __repr__(self) = {
-    self.toString.encode("utf-8")
+  def __repr__() = {
+    toString.encode("utf-8")
   }
 
-  def shortstr(self) = {
-    var str = "Region %s" format self.boundstr()
-    val mostpop = self.most_popular_article
+  def shortstr() = {
+    var str = "Region %s" format boundstr()
+    val mostpop = most_popular_article
     if (mostpop != null)
       str += ", most-popular %s" format mostpop.shortstr()
     str
   }
 
-  def struct(self) = {
+  def struct() = {
     val foo = mutable.Seq[Any]("StatRegion")
-    foo :+= ("bounds", self.boundstr())
-    if (!self.worddist.finished)
+    foo :+= ("bounds", boundstr())
+    if (!worddist.finished)
       foo :+= ("finished", true)
-    if (self.most_popular_article) {
-      foo :+= ("most-popular-article", self.most_popular_article.struct())
-      foo :+= ("most-popular-article-links", self.mostpopart_links)
+    if (most_popular_article) {
+      foo :+= ("most-popular-article", most_popular_article.struct())
+      foo :+= ("most-popular-article-links", mostpopart_links)
     }
-    foo :+= ("num-articles-dist", self.worddist.num_arts_for_word_dist)
-    foo :+= ("num-articles-link", self.worddist.num_arts_for_links)
-    foo :+= ("incoming-links", self.worddist.incoming_links)
+    foo :+= ("num-articles-dist", worddist.num_arts_for_word_dist)
+    foo :+= ("num-articles-link", worddist.num_arts_for_links)
+    foo :+= ("incoming-links", worddist.incoming_links)
     foo
   }
 
   // Generate the distribution for a statistical region from the tiling regions.
-  def generate_dist(self) {
+  def generate_dist() {
 
-    val reglat = self.latind
-    val reglong = self.longind
+    val reglat = latind
+    val reglong = longind
 
-    if debug("lots")
+    if (debug("lots")) {
       errprint("Generating distribution for statistical region centered at %s",
                region_indices_to_coord(reglat, reglong))
+    }
 
     // Accumulate counts for the given region
     def process_one_region(latind:Int, longind:Int) {
       val arts = StatRegion.tiling_region_to_articles.getOrElse((latind, longind), null)
       if (arts == null)
         return
-      if debug("lots")
+      if (debug("lots")) {
         errprint("--> Processing tiling region %s",
                  region_indices_to_coord(latind, longind))
-      self.worddist.add_articles(arts)
+      }
+      worddist.add_articles(arts)
       for (art <- arts) {
-        if (art.incoming_links > self.mostpopart_links) {
-          self.mostpopart_links = art.incoming_links
-          self.most_popular_article = art
+        if (art.incoming_links > mostpopart_links) {
+          mostpopart_links = art.incoming_links
+          most_popular_article = art
         }
       }
     }
@@ -786,7 +792,7 @@ class StatRegion(latind:Int, longind:Int) {
       }
     }
 
-    self.worddist.finish(minimum_word_count=Opts.minimum_word_count)
+    worddist.finish(minimum_word_count=Opts.minimum_word_count)
   }
 }
 
@@ -820,9 +826,9 @@ object StatRegion {
 
   // Find the correct StatRegion for the given coordinates.
   // If none, create the region.
-  def find_region_for_coord(cls, coord:Coord) = {
+  def find_region_for_coord(coord:Coord) = {
     val (latind, longind) = coord_to_stat_region_indices(coord)
-    cls.find_region_for_region_indices(latind, longind)
+    find_region_for_region_indices(latind, longind)
   }
 
   // Find the StatRegion with the given indices at the southwest point.
@@ -832,34 +838,34 @@ object StatRegion {
   def find_region_for_region_indices(cls,
       latind:Int, longind:Int, no_create:Boolean=false,
       no_create_empty:Boolean=false):StatRegion = {
-    var statreg = cls.corner_to_stat_region.getOrElse((latind, longind), null)
+    var statreg = corner_to_stat_region.getOrElse((latind, longind), null)
     if (statreg == null) {
       if (no_create)
         return null
-      if (cls.all_regions_computed) {
-        if (!cls.empty_stat_region) {
-          cls.empty_stat_region = cls(null, null)
-          cls.empty_stat_region.worddist.finish()
+      if (all_regions_computed) {
+        if (!empty_stat_region) {
+          empty_stat_region = cls(null, null)
+          empty_stat_region.worddist.finish()
         }
-        return cls.empty_stat_region
+        return empty_stat_region
       }
       statreg = cls(latind, longind)
       statreg.generate_dist()
       val empty = statreg.worddist.is_empty()
       if (empty)
-        cls.num_empty_regions += 1
+        num_empty_regions += 1
       else
-        cls.num_non_empty_regions += 1
+        num_non_empty_regions += 1
       if (!empty || !no_create_empty)
-        cls.corner_to_stat_region[(latind, longind)] = statreg
+        corner_to_stat_region[(latind, longind)] = statreg
     }
     return statreg
   }
 
   // Generate all StatRegions that are non-empty.  Don't do anything if
   // called multiple times.
-  def initialize_regions(cls) {
-    if (cls.all_regions_computed)
+  def initialize_regions() {
+    if (all_regions_computed)
       return
 
     errprint("Generating all non-empty statistical regions...")
@@ -867,34 +873,34 @@ object StatRegion {
 
     for (i <- minimum_latind to maximum_latind view) {
       for (j <- minimum_longind to maximum_longind view) {
-        val reg = cls.find_region_for_region_indices(i, j, no_create_empty=true)
+        val reg = find_region_for_region_indices(i, j, no_create_empty=true)
         if (debug("region") && reg.worddist.size > 0)
           errprint("--> (%d,%d): %s", i, j, reg)
         status.item_processed()
       }
     }
-    cls.all_regions_computed = true
+    all_regions_computed = true
 
-    cls.total_num_arts_for_links = 0
-    cls.total_num_arts_for_word_dist = 0
+    total_num_arts_for_links = 0
+    total_num_arts_for_word_dist = 0
     for (reg <- StatRegion.iter_nonempty_regions()) {
-      cls.total_num_arts_for_word_dist += reg.worddist.num_arts_for_word_dist
-      cls.total_num_arts_for_links += reg.worddist.num_arts_for_links
+      total_num_arts_for_word_dist += reg.worddist.num_arts_for_word_dist
+      total_num_arts_for_links += reg.worddist.num_arts_for_links
     }
 
-    errprint("Number of non-empty regions: %s", cls.num_non_empty_regions)
-    errprint("Number of empty regions: %s", cls.num_empty_regions)
+    errprint("Number of non-empty regions: %s", num_non_empty_regions)
+    errprint("Number of empty regions: %s", num_empty_regions)
     // Save some memory by clearing this after it's not needed
-    cls.tiling_region_to_articles = null
+    tiling_region_to_articles = null
     ArticleTable.clear_training_article_distributions()
   }
 
   // Add the given article to the region map, which covers the earth in regions
   // of a particular size to aid in computing the regions used in region-based
   // Naive Bayes.
-  def add_article_to_region(cls, article:Article) {
+  def add_article_to_region(article:Article) {
     val (latind, longind) = coord_to_tiling_region_indices(article.coord)
-    cls.tiling_region_to_articles[(latind, longind)] :+= article
+    tiling_region_to_articles[(latind, longind)] :+= article
   }
 
   // Iterate over all non-empty regions.  If 'nonempty_word_dist' is given,
@@ -903,11 +909,11 @@ object StatRegion {
   // have word distributions, esp. when --max-time-per-stage is set so
   // that we only load the word distributions for a fraction of the whole
   // set of articles with distributions.)
-  def iter_nonempty_regions(cls, nonempty_word_dist:Boolean=false) {
-    assert(cls.all_regions_computed)
+  def iter_nonempty_regions(nonempty_word_dist:Boolean=false) {
+    assert(all_regions_computed)
     for {
-      v <- cls.corner_to_stat_region.values
-      empty = (
+      v <- corner_to_stat_region.values
+      val empty = (
         if (nonempty_word_dist) v.worddist.is_empty_for_word_dist()
         else v.worddist.is_empty()
       )
@@ -947,40 +953,40 @@ class Locality(name:String, coord:Coord, altnames:List[String], typ:String)
   extends Location(name, altnames, typ) {
   var stat_region:StatRegion = null
 
-  def toString(self, no_article:Boolean=false) = {
+  def toString(no_article:Boolean=false) = {
     var artmatch = ""
     if (!no_article)
-      artmatch = ", match=%s" format self.artmatch
-    "Locality %s (%s) at %s%s" format (self.name, self.div && self.div.path.mkString("/"), self.coord, artmatch)
+      artmatch = ", match=%s" format artmatch
+    "Locality %s (%s) at %s%s" format (name, div && div.path.mkString("/"), coord, artmatch)
   }
 
-  def __repr__(self) = {
-    self.toString.encode("utf-8")
+  def __repr__() = {
+    toString.encode("utf-8")
   }
 
-  def shortstr(self) = {
+  def shortstr() = {
     "Locality %s (%s)" format (
-        self.name, self.div && self.div.path.mkString("/"))
+        name, div && div.path.mkString("/"))
   }
 
-  def struct(self, no_article:Boolean=false) = {
+  def struct(no_article:Boolean=false) = {
     var foo = mutable.Seq[Any]("Locality")
-    foo :+= ("name", self.name)
-    foo :+= ("in division", self.div && self.div.path.mkString("/"))
-    foo :+= ("at coordinate", self.coord)
+    foo :+= ("name", name)
+    foo :+= ("in division", div && div.path.mkString("/"))
+    foo :+= ("at coordinate", coord)
     if (!no_article) {
-      if (self.artmatch)
-        foo :+= ("matching", self.artmatch.struct())
+      if (artmatch)
+        foo :+= ("matching", artmatch.struct())
       else
         foo :+= ("matching", "none")
     }
     foo
   }
 
-  def distance_to_coord(self, coord:Coord) = spheredist(self.coord, coord)
+  def distance_to_coord(coord:Coord) = spheredist(coord, coord)
 
-  def matches_coord(self, coord:Coord) = {
-    self.distance_to_coord(coord) <= Opts.max_dist_for_close_match
+  def matches_coord(coord:Coord) = {
+    distance_to_coord(coord) <= Opts.max_dist_for_close_match
   }
 }
 
@@ -1015,52 +1021,52 @@ class Division(path:String)
   var artmatch:Article = null
   val worddist:WordDist = null
 
-  def toString(self, no_article:Boolean=false) = {
+  def toString(no_article:Boolean=false) = {
     val artmatch =
-      if (no_article) "" else artmatch = ", match=%s" format self.artmatch
-    "Division %s (%s)%s, boundary=%s" format (self.name, self.path.mkString("/"), artmatch, self.boundary)
+      if (no_article) "" else artmatch = ", match=%s" format artmatch
+    "Division %s (%s)%s, boundary=%s" format (name, path.mkString("/"), artmatch, boundary)
   }
 
-  def __repr__(self) = self.toString.encode("utf-8")
+  def __repr__() = toString.encode("utf-8")
   }
 
-  def shortstr(self) = {
-    ("Division %s" format self.name) + (
-      if (self.level > 1) " (%s)" format (self.path.mkString("/")) else "")
+  def shortstr() = {
+    ("Division %s" format name) + (
+      if (level > 1) " (%s)" format (path.mkString("/")) else "")
   }
 
-  def struct(self, no_article:Boolean=false) = {
+  def struct(no_article:Boolean=false) = {
     var foo = mutable.Seq[Any]("Division")
-    foo :+= ("name", self.name)
-    foo :+= ("path", self.path.mkString("/"))
+    foo :+= ("name", name)
+    foo :+= ("path", path.mkString("/"))
     if (!no_article) {
-      if (self.artmatch)
-        foo :+= ("matching", self.artmatch.struct())
+      if (artmatch)
+        foo :+= ("matching", artmatch.struct())
       else
         foo :+= ("matching", "none")
     }
-    foo :+= ("boundary", self.boundary.struct())
+    foo :+= ("boundary", boundary.struct())
     foo
   }
 
-  def distance_to_coord(self, coord:Coord) = "Unknown"
+  def distance_to_coord(coord:Coord) = "Unknown"
 
-  def matches_coord(self, coord:Coord) = self contains coord
+  def matches_coord(coord:Coord) = this contains coord
 
   // Compute the boundary of the geographic region of this division, based
   // on the points in the region.
-  def compute_boundary(self) {
+  def compute_boundary() {
     // Yield up all points that are not "outliers", where outliers are defined
     // as points that are more than Opts.max_dist_for_outliers away from all
     // other points.
     def iter_non_outliers() {
       // If not enough points, just return them; otherwise too much possibility
       // that all of them, or some good ones, will be considered outliers.
-      if (self.locs.length <= 5) {
-        for (p <- self.locs) yield p
+      if (locs.length <= 5) {
+        for (p <- locs) yield p
       } else {
         // FIXME: Actually look for outliers.
-        for (p <- self.locs) yield p
+        for (p <- locs) yield p
         //for {
         //  p <- locs
         //  // Find minimum distance to all other points and check it.
@@ -1070,35 +1076,37 @@ class Division(path:String)
       }
     }
 
-    if debug("lots")
+    if (debug("lots")) {
       errprint("Computing boundary for %s, path %s, num points %s",
-               self.name, self.path, self.locs.length)
+               name, path, locs.length)
+    }
                
-    self.goodlocs = iter_non_outliers()
+    goodlocs = iter_non_outliers()
     // If we've somehow discarded all points, just use the original list
-    if (!self.goodlocs.length) {
-      if debug("some")
+    if (!goodlocs.length) {
+      if (debug("some")) {
         warning("All points considered outliers?  Division %s, path %s",
-                self.name, self.path)
-      self.goodlocs = self.locs
+                name, path)
+      }
+      goodlocs = locs
     }
     // FIXME! This will fail for a division that crosses the International
     // Date Line.
-    val topleft = Coord((for (x <- self.goodlocs) yield x.coord.lat) min,
-                        (for (x <- self.goodlocs) yield x.coord.long) min)
-    val botright = Coord((for (x <- self.goodlocs) yield x.coord.lat) max,
-                         (for (x <- self.goodlocs) yield x.coord.long) max)
-    self.boundary = Boundary(topleft, botright)
+    val topleft = Coord((for (x <- goodlocs) yield x.coord.lat) min,
+                        (for (x <- goodlocs) yield x.coord.long) min)
+    val botright = Coord((for (x <- goodlocs) yield x.coord.lat) max,
+                         (for (x <- goodlocs) yield x.coord.long) max)
+    boundary = Boundary(topleft, botright)
   }
 
-  def generate_worddist(self) {
-    self.worddist = RegionWordDist()
-    self.worddist.add_locations([self])
-    self.worddist.add_locations(self.goodlocs)
-    self.worddist.finish(minimum_word_count=Opts.minimum_word_count)
+  def generate_worddist() {
+    worddist = RegionWordDist()
+    worddist.add_locations([this])
+    worddist.add_locations(goodlocs)
+    worddist.finish(minimum_word_count=Opts.minimum_word_count)
   }
 
-  def contains(self, coord:Coord) = self.boundary contains coord
+  def contains(coord:Coord) = boundary contains coord
   }
 }
 
@@ -1106,19 +1114,19 @@ object Division {
   // Find the division for a point in the division with a given path,
   // add the point to the division.  Create the division if necessary.
   // Return the corresponding Division.
-  def find_division_note_point(cls, loc:Location, path:List[String]) = {
+  def find_division_note_point(loc:Location, path:List[String]) = {
     val higherdiv = if (path.length > 1)
       // Also note location in next-higher division.
-        cls.find_division_note_point(loc, path[0:-1])
+        find_division_note_point(loc, path(0:-1))
       else null
     // Skip divisions where last element in path is empty; this is a
     // reference to a higher-level division with no corresponding lower-level
     // division.
-    if (!path[-1]) higherdiv
+    if (!path(-1)) higherdiv
     else {
       val division = {
-        if (cls.path_to_division contains path)
-          cls.path_to_division[path]
+        if (path_to_division contains path)
+          path_to_division(path)
         else {
           // If we haven't seen this path, create a new Division object.
           // Record the mapping from path to division, and also from the
@@ -1126,8 +1134,8 @@ object Division {
           // the division.
           val newdiv = Division(path)
           newdiv.div = higherdiv
-          cls.path_to_division[path] = newdiv
-          Gazetteer.lower_toponym_to_division[path.last.toLowerCase] :+= newdiv
+          path_to_division(path) = newdiv
+          Gazetteer.lower_toponym_to_division(path.last.toLowerCase) :+= newdiv
           newdiv
         }
       }
@@ -1139,9 +1147,9 @@ object Division {
   // Finish all computations related to Divisions, after we've processed
   // all points (and hence all points have been added to the appropriate
   // Divisions).
-  def finish_all(cls) {
+  def finish_all() {
     val divs_by_area = mutable.Seq[(Division, Double)]()
-    for (division <- cls.path_to_division.itervalues()) {
+    for (division <- path_to_division.itervalues()) {
       if (debug("lots")) {
         errprint("Processing division named %s, path %s",
                  division.name, division.path)
@@ -1149,26 +1157,29 @@ object Division {
       division.compute_boundary()
       val artmatch = ArticleTable.find_match_for_division(division)
       if (artmatch != null) {
-        if debug("lots")
+        if (debug("lots")) {
           errprint("Matched article %s for division %s, path %s",
                    artmatch, division.name, division.path)
+        }
         division.artmatch = artmatch
         artmatch.location = division
       }
       else {
-        if debug("lots")
+        if (debug("lots")) {
           errprint("Couldn't find match for division %s, path %s",
                    division.name, division.path)
+        }
       }
       for (inds <- division.boundary.iter_nonempty_tiling_regions())
-        cls.tiling_region_to_divisions[inds] :+= division
-      if debug("region")
+        tiling_region_to_divisions(inds) :+= division
+      if (debug("region"))
         divs_by_area :+= (division, division.boundary.square_area())
     }
-    if debug("region")
+    if (debug("region")) {
       // sort by second element of tuple, in reverse order
       for ((div, area) <- divs_by_area sortWith(_._2 > _._2))
         errprint("%.2f square miles: %s", area, div)
+    }
   }
 }
 
@@ -1233,41 +1244,41 @@ object ArticleTable {
   // Look up an article named NAME and return the associated article.
   // Note that article names are case-sensitive but the first letter needs to
   // be capitalized.
-  def lookup_article(cls, name:String) = {
+  def lookup_article(name:String) = {
     assert(name)
-    cls.name_to_article.getOrElse(capfirst(name), null)
+    name_to_article.getOrElse(capfirst(name), null)
   }
 
   // Record the article as having NAME as one of its names (there may be
   // multiple names, due to redirects).  Also add to related lists mapping
   // lowercased form, short form, etc.
-  def record_article_name(cls, name:String, art:Article) {
+  def record_article_name(name:String, art:Article) {
     // Must pass in properly cased name
     assert(name == capfirst(name))
-    cls.name_to_article[name] = art
+    name_to_article(name) = art
     val loname = name.toLowerCase
-    cls.lower_name_to_articles[loname] :+= art
-    (short, div) = compute_short_form(loname)
+    lower_name_to_articles(loname) :+= art
+    val (short, div) = compute_short_form(loname)
     if (div != null)
-      cls.lower_name_div_to_articles[(short, div)] :+= art
-    cls.short_lower_name_to_articles[short] :+= art
-    if (art !in cls.lower_toponym_to_article[loname])
-      cls.lower_toponym_to_article[loname] :+= art
-    if (short != loname && art !in cls.lower_toponym_to_article[short])
-      cls.lower_toponym_to_article[short] :+= art
+      lower_name_div_to_articles[(short, div)] :+= art
+    short_lower_name_to_articles(short) :+= art
+    if (art !in lower_toponym_to_article(loname))
+      lower_toponym_to_article(loname) :+= art
+    if (short != loname && art !in lower_toponym_to_article(short))
+      lower_toponym_to_article(short) :+= art
   }
 
   // Record either a normal article ('artfrom' same as 'artto') or a
   // redirect ('artfrom' redirects to 'artto').
-  def record_article(cls, artfrom:Article, artto:Article) {
+  def record_article(artfrom:Article, artto:Article) {
 
-    cls.record_article_name(artfrom.title, artto)
+    record_article_name(artfrom.title, artto)
     val redir = !(artfrom eq artto)
     val split = artto.split
     val fromlinks = artfrom.incoming_links_or_zero
-    cls.incoming_links_by_split[split] += fromlinks
+    incoming_links_by_split(split) += fromlinks
     if (!redir) {
-      cls.articles_by_split[split] :+= artto
+      articles_by_split(split) :+= artto
     }
     else if (fromlinks != 0) {
       // Add count of links pointing to a redirect to count of links
@@ -1277,9 +1288,9 @@ object ArticleTable {
     }
   }
 
-  def finish_article_distributions(cls) {
+  def finish_article_distributions() {
     // Figure out the value of OVERALL_UNSEEN_MASS for each article.
-    for ((split, table) <- cls.articles_by_split.iteritems()) {
+    for ((split, table) <- articles_by_split.iteritems()) {
       val totaltoks = 0
       val numarts = 0
       for (art <- table) {
@@ -1289,13 +1300,13 @@ object ArticleTable {
           numarts += 1
         }
       }
-      cls.num_dist_articles_by_split[split] = numarts
-      cls.word_tokens_by_split[split] = totaltoks
+      num_dist_articles_by_split(split) = numarts
+      word_tokens_by_split(split) = totaltoks
     }
   }
 
-  def clear_training_article_distributions(cls) {
-    for (art <- cls.articles_by_split["training"])
+  def clear_training_article_distributions() {
+    for (art <- articles_by_split["training"])
       art.dist = null
   }
 
@@ -1317,7 +1328,7 @@ object ArticleTable {
 
     // Look for any articles with same name (case-insensitive) as the location,
     // check for matches
-    for (art <- cls.lower_name_to_articles[loname])
+    for (art <- lower_name_to_articles(loname))
       if (check_match(loc, art)) return art
 
     // Check whether there is a match for an article whose name is
@@ -1326,25 +1337,26 @@ object ArticleTable {
     // "Augusta" in a second-level division "Georgia").
     if (loc.div) {
       for {div <- loc.div.path
-           art <- cls.lower_name_div_to_articles[(loname, div.toLowerCase)]}
+           art <- lower_name_div_to_articles[(loname, div.toLowerCase)]}
         if (check_match(loc, art)) return art
       }
     }
 
     // See if there is a match with any of the articles whose short name
     // is the same as the location's name
-    val arts = cls.short_lower_name_to_articles[loname]
+    val arts = short_lower_name_to_articles(loname)
     if (arts != null) {
       val goodarts = (for (art <- arts if check_match(loc, art)) yield art)
       if (goodarts.length == 1)
-        return goodarts[0] // One match
+        return goodarts(0) // One match
       else if (goodarts.length > 1) {
         // Multiple matches: Sort by preference, return most preferred one
-        if debug("lots")
+        if (debug("lots")) {
           errprint("Warning: Saw %s toponym matches: %s",
                    goodarts.length, goodarts)
+        }
         val sortedarts = goodarts sortWith (prefer_match(loc,_,_))
-        return sortedarts[0]
+        return sortedarts(0)
       }
     }
 
@@ -1359,13 +1371,13 @@ object ArticleTable {
         check_match:(Location, String)=>Boolean,
         prefer_match(Location, String, String)=>Boolean):Article = {
     // Try to find a match for the canonical name of the location
-    val artmatch = cls.find_one_wikipedia_match(loc, loc.name, check_match,
+    val artmatch = find_one_wikipedia_match(loc, loc.name, check_match,
                                                 prefer_match)
     if (artmatch != null) return artmatch
 
     // No match; try each of the alternate names in turn.
     for (altname <- loc.altnames) {
-      val artmatch2 = cls.find_one_wikipedia_match(loc, altname, check_match,
+      val artmatch2 = find_one_wikipedia_match(loc, altname, check_match,
                                                    prefer_match)
       if (artmatch2 != null) return artmatch2
     }
@@ -1377,15 +1389,16 @@ object ArticleTable {
   // Find Wikipedia article matching locality LOC; the two coordinates must
   // be at most MAXDIST away from each other.
 
-  def find_match_for_locality(cls, loc:Location, maxdist:Double) = {
+  def find_match_for_locality(loc:Location, maxdist:Double) = {
 
     def check_match(loc:Location, art:Article) = {
       val dist = spheredist(loc.coord, art.coord)
       if (dist <= maxdist) true
       else {
-        if debug("lots")
+        if (debug("lots")) {
           errprint("Found article %s but dist %s > %s",
                    art, dist, maxdist)
+        }
         false
       }
     }
@@ -1394,18 +1407,18 @@ object ArticleTable {
       spheredist(loc.coord, art1.coord) < spheredist(loc.coord, art2.coord)
     }
 
-    cls.find_wikipedia_match(loc, check_match, prefer_match)
+    find_wikipedia_match(loc, check_match, prefer_match)
   }
 
   // Find Wikipedia article matching division LOC; the article coordinate
   // must be inside of the division's boundaries.
 
-  def find_match_for_division(cls, loc:Location) = {
+  def find_match_for_division(loc:Location) = {
 
     def check_match(loc:Location, art:Article) = {
       if (art.coord && loc contains art.coord) true
       else {
-        if debug("lots")
+        if (debug("lots")) {
           if (!art.coord) {
             errprint("Found article %s but no coordinate, so not in location named %s, path %s",
                      art, loc.name, loc.path)
@@ -1414,6 +1427,7 @@ object ArticleTable {
             errprint("Found article %s but not in location named %s, path %s",
                      art, loc.name, loc.path)
           }
+        }
         false
       }
     }
@@ -1430,7 +1444,7 @@ object ArticleTable {
       }
     }
 
-    cls.find_wikipedia_match(loc, check_match, prefer_match)
+    find_wikipedia_match(loc, check_match, prefer_match)
     }
   }
 }
@@ -1451,47 +1465,47 @@ class StatArticle(params:Map[String,String]) extends Article(params) {
   var stat_region:StatRegion = null
   val dist:WordDist = null
 
-  def toString(self) = {
-    var coordstr = " at %s" format self.coord if self.coord else ""
-    if (self.location) {
+  def toString() = {
+    var coordstr = " at %s" format coord if coord else ""
+    if (location) {
       coordstr += (", matching location %s" format
-                   self.location.toString(no_article=true))
+                   location.toString(no_article=true))
     }
-    val redirstr = ", redirect to %s" format self.redir if self.redir else ""
-    val divs = self.find_covering_divisions()
+    val redirstr = ", redirect to %s" format redir if redir else ""
+    val divs = find_covering_divisions()
     val top_divs = (for (div <- divs if div.level == 1) yield div.toString(no_article=true))
     var topdivstr =
       if (top_divs != null)
         ", in top-level divisions %s" format (top_divs.mkString(", "))
       else
         ", not in any top-level divisions"
-    "%s(%s)%s%s%s" format (self.title, self.id, coordstr, redirstr, topdivstr)
+    "%s(%s)%s%s%s" format (title, id, coordstr, redirstr, topdivstr)
   }
 
-  def __repr__(self) = "Article(%s)" format self.toString.encode("utf-8")
+  def __repr__() = "Article(%s)" format toString.encode("utf-8")
 
-  def shortstr(self) = {
-    var str = "%s" format self.title
-    if (self.location)
-      str += ", matching %s" format self.location.shortstr()
-    val divs = self.find_covering_divisions()
+  def shortstr() = {
+    var str = "%s" format title
+    if (location)
+      str += ", matching %s" format location.shortstr()
+    val divs = find_covering_divisions()
     val top_divs = (for (div <- divs if div.level == 1) yield div.name)
     if (top_divs != null)
       str += ", in top-level divisions %s" format (top_divs.mkString(", "))
     str
   }
 
-  def struct(self) = {
+  def struct() = {
     var foo = mutable.Seq[Any]("StatArticle")
-    foo :+= ("title", self.title)
-    foo :+= ("id", self.id)
-    if (self.coord)
-      foo :+= ("location", self.coord)
-    if (self.location)
-      foo :+= ("matching", self.location.struct(no_article=true))
-    if (self.redir)
-      foo :+= ("redirect to", self.redir.struct())
-    val divs = self.find_covering_divisions()
+    foo :+= ("title", title)
+    foo :+= ("id", id)
+    if (coord)
+      foo :+= ("location", coord)
+    if (location)
+      foo :+= ("matching", location.struct(no_article=true))
+    if (redir)
+      foo :+= ("redirect to", redir.struct())
+    val divs = find_covering_divisions()
     val top_divs = (for (div <- divs if div.level == 1) yield div.struct(no_article=true))
     if (top_divs != null)
       foo :+= ("top level divisions", top_divs)
@@ -1500,34 +1514,34 @@ class StatArticle(params:Map[String,String]) extends Article(params) {
     foo
   }
 
-  def distance_to_coord(self, coord:Coord) = spheredist(self.coord, coord)
+  def distance_to_coord(coord:Coord) = spheredist(coord, coord)
 
-  def matches_coord(self, coord:Coord) = {
-    if (self.distance_to_coord(coord) <= Opts.max_dist_for_close_match) true
-    if (self.location && (self.location.isInstanceOf[Division]) &&
-        self.location.matches_coord(coord)) true
+  def matches_coord(coord:Coord) = {
+    if (distance_to_coord(coord) <= Opts.max_dist_for_close_match) true
+    if (location && (location.isInstanceOf[Division]) &&
+        location.matches_coord(coord)) true
     false
   }
 
   // Determine the region word-distribution object for a given article:
   // Create and populate one if necessary.
-  def find_regworddist(self):WordDist = {
-    val loc = self.location
+  def find_regworddist():WordDist = {
+    val loc = location
     if (loc && loc.isInstanceOf[Division]) {
       if (!loc.worddist)
         loc.generate_worddist()
       return loc.worddist
     }
-    if (!self.stat_region)
-      self.stat_region = StatRegion.find_region_for_coord(self.coord)
-    return self.stat_region.worddist
+    if (!stat_region)
+      stat_region = StatRegion.find_region_for_coord(coord)
+    return stat_region.worddist
   }
 
   // Find the divisions that cover the given article.
-  def find_covering_divisions(self) = {
-    val inds = coord_to_tiling_region_indices(self.coord)
-    val divs = Division.tiling_region_to_divisions[inds]
-    (for (div in divs if self.coord <- div) yield div)
+  def find_covering_divisions() = {
+    val inds = coord_to_tiling_region_indices(coord)
+    val divs = Division.tiling_region_to_divisions(inds)
+    (for (div in divs if coord <- div) yield div)
   }
 }
 
@@ -1541,31 +1555,31 @@ class StatArticle(params:Map[String,String]) extends Article(params) {
 class Eval(incorrect_reasons:Map[String,String]) {
   // Statistics on the types of instances processed
   // Total number of instances
-  var self.total_instances = 0
-  var self.correct_instances = 0
-  var self.incorrect_instances = 0
-  val self.other_stats = intmap()
+  var total_instances = 0
+  var correct_instances = 0
+  var incorrect_instances = 0
+  val other_stats = intmap()
   // Map from reason ID's to counts
   var results = Map[String,Int]()
-  for ((attrname, engname) <- self.incorrect_reasons)
+  for ((attrname, engname) <- incorrect_reasons)
     results(attrname) = 0
   
-  def record_result(self, correct:Boolean, reason:String=null) {
-    self.total_instances += 1
+  def record_result(correct:Boolean, reason:String=null) {
+    total_instances += 1
     if (correct)
-      self.correct_instances += 1
+      correct_instances += 1
     else {
-      self.incorrect_instances += 1
+      incorrect_instances += 1
       if (reason != null)
-        results[reason] += 1
+        results(reason) += 1
     }
   }
 
-  def record_other_stat(self, othertype:String) {
-    self.other_stats[othertype] += 1
+  def record_other_stat(othertype:String) {
+    other_stats(othertype) += 1
   }
 
-  def output_fraction(self, header:String, amount:Int, total:Int) {
+  def output_fraction(header:String, amount:Int, total:Int) {
     if (amount > total) {
       warning("Something wrong: Fractional quantity %s greater than total %s"
               , (amount, total))
@@ -1577,149 +1591,149 @@ class Eval(incorrect_reasons:Map[String,String]) {
     errprint("%s = %s/%s = %s", header, amount, total, percent)
   }
 
-  def output_correct_results(self) {
-    self.output_fraction("Percent correct", self.correct_instances,
-                         self.total_instances)
+  def output_correct_results() {
+    output_fraction("Percent correct", correct_instances,
+                         total_instances)
   }
 
-  def output_incorrect_results(self) {
-    self.output_fraction("Percent incorrect", self.incorrect_instances,
-                         self.total_instances)
-    for ((reason, descr) <- self.incorrect_reasons) {
-      self.output_fraction("  %s" format descr, getattr(self, reason),
-                           self.total_instances)
+  def output_incorrect_results() {
+    output_fraction("Percent incorrect", incorrect_instances,
+                         total_instances)
+    for ((reason, descr) <- incorrect_reasons) {
+      output_fraction("  %s" format descr, getattr(this, reason),
+                           total_instances)
     }
   }
 
-  def output_other_stats(self) {
-    for ((ty, count) <- self.other_stats.iteritems())
+  def output_other_stats() {
+    for ((ty, count) <- other_stats.iteritems())
       errprint("%s = %s", ty, count)
   }
 
-  def output_results(self) {
-    if (!self.total_instances) {
+  def output_results() {
+    if (!total_instances) {
       warning("Strange, no instances found at all; perhaps --eval-format is incorrect?")
       return
     }
-    errprint("Number of instances = %s", self.total_instances)
-    self.output_correct_results()
-    self.output_incorrect_results()
-    self.output_other_stats()
+    errprint("Number of instances = %s", total_instances)
+    output_correct_results()
+    output_incorrect_results()
+    output_other_stats()
   }
 }
 
 class EvalWithCandidateList(incorrect_reasons:Map[String,String],
   max_individual_candidates:Int=5) extends Eval(incorrect_reasons) {
   // Toponyms by number of candidates available
-  val self.total_instances_by_num_candidates = intmap()
-  val self.correct_instances_by_num_candidates = intmap()
-  val self.incorrect_instances_by_num_candidates = intmap()
+  val total_instances_by_num_candidates = intmap()
+  val correct_instances_by_num_candidates = intmap()
+  val incorrect_instances_by_num_candidates = intmap()
 
-  def record_result(self, correct:Boolean, reason:String, num_candidates:Int) {
-    super(EvalWithCandidateList, self).record_result(correct, reason)
-    self.total_instances_by_num_candidates[num_candidates] += 1
+  def record_result(correct:Boolean, reason:String, num_candidates:Int) {
+    super(EvalWithCandidateList, this).record_result(correct, reason)
+    total_instances_by_num_candidates(num_candidates) += 1
     if (correct)
-      self.correct_instances_by_num_candidates[num_candidates] += 1
+      correct_instances_by_num_candidates(num_candidates) += 1
     else
-      self.incorrect_instances_by_num_candidates[num_candidates] += 1
+      incorrect_instances_by_num_candidates(num_candidates) += 1
   }
 
-  def output_table_by_num_candidates(self, table:Map[Int,Int], total:Int) {
-    for (i <- 0 to self.max_individual_candidates)
-      self.output_fraction("  With %d  candidates" format i, table[i], total)
+  def output_table_by_num_candidates(table:Map[Int,Int], total:Int) {
+    for (i <- 0 to max_individual_candidates)
+      output_fraction("  With %d  candidates" format i, table(i), total)
     val items = sum(val for key, val in table.iteritems()
-                if key > self.max_individual_candidates)
-    self.output_fraction("  With %d+ candidates" format
-                           (1+self.max_individual_candidates),
+                if key > max_individual_candidates)
+    output_fraction("  With %d+ candidates" format
+                           (1+max_individual_candidates),
                          items, total)
   }
 
-  def output_correct_results(self) {
-    super(EvalWithCandidateList, self).output_correct_results()
-    self.output_table_by_num_candidates(
-      self.correct_instances_by_num_candidates, self.correct_instances)
+  def output_correct_results() {
+    super(EvalWithCandidateList, this).output_correct_results()
+    output_table_by_num_candidates(
+      correct_instances_by_num_candidates, correct_instances)
   }
 
-  def output_incorrect_results(self) {
-    super(EvalWithCandidateList, self).output_incorrect_results()
-    self.output_table_by_num_candidates(
-      self.incorrect_instances_by_num_candidates, self.incorrect_instances)
+  def output_incorrect_results() {
+    super(EvalWithCandidateList, this).output_incorrect_results()
+    output_table_by_num_candidates(
+      incorrect_instances_by_num_candidates, incorrect_instances)
   }
 }
 
 class EvalWithRank(max_rank_for_credit:Int=10)
     extends Eval(Map[String,String]()) {
-  val self.max_rank_for_credit = max_rank_for_credit
-  val self.incorrect_by_exact_rank = intmap()
-  val self.correct_by_up_to_rank = intmap()
-  var self.incorrect_past_max_rank = 0
-  var self.total_credit = 0
+  val max_rank_for_credit = max_rank_for_credit
+  val incorrect_by_exact_rank = intmap()
+  val correct_by_up_to_rank = intmap()
+  var incorrect_past_max_rank = 0
+  var total_credit = 0
   
-  def record_result(self, rank:Int) {
+  def record_result(rank:Int) {
     assert(rank >= 1)
     val correct = rank == 1
-    super(EvalWithRank, self).record_result(correct, reason=null)
-    if (rank <= self.max_rank_for_credit) {
-      self.total_credit += self.max_rank_for_credit + 1 - rank
-      self.incorrect_by_exact_rank[rank] += 1
-      for (i <- rank to self.max_rank_for_credit)
-        self.correct_by_up_to_rank[i] += 1
+    super(EvalWithRank, this).record_result(correct, reason=null)
+    if (rank <= max_rank_for_credit) {
+      total_credit += max_rank_for_credit + 1 - rank
+      incorrect_by_exact_rank(rank) += 1
+      for (i <- rank to max_rank_for_credit)
+        correct_by_up_to_rank(i) += 1
     }
     else
-      self.incorrect_past_max_rank += 1
+      incorrect_past_max_rank += 1
   }
 
-  def output_correct_results(self) {
-    super(EvalWithRank, self).output_correct_results()
-    val possible_credit = self.max_rank_for_credit*self.total_instances
-    self.output_fraction("Percent correct with partial credit",
-                         self.total_credit, possible_credit)
-    for (i <- 2 to self.max_rank_for_credit) {
-      self.output_fraction("  Correct is at or above rank %s" format i,
-                           self.correct_by_up_to_rank[i], self.total_instances)
+  def output_correct_results() {
+    super(EvalWithRank, this).output_correct_results()
+    val possible_credit = max_rank_for_credit*total_instances
+    output_fraction("Percent correct with partial credit",
+                         total_credit, possible_credit)
+    for (i <- 2 to max_rank_for_credit) {
+      output_fraction("  Correct is at or above rank %s" format i,
+                           correct_by_up_to_rank(i), total_instances)
     }
   }
 
-  def output_incorrect_results(self) {
-    super(EvalWithRank, self).output_incorrect_results()
-    for (i <- 2 to self.max_rank_for_credit) {
-      self.output_fraction("  Incorrect, with correct at rank %s" format i,
-                           self.incorrect_by_exact_rank[i],
-                           self.total_instances)
+  def output_incorrect_results() {
+    super(EvalWithRank, this).output_incorrect_results()
+    for (i <- 2 to max_rank_for_credit) {
+      output_fraction("  Incorrect, with correct at rank %s" format i,
+                           incorrect_by_exact_rank(i),
+                           total_instances)
     }
-    self.output_fraction("  Incorrect, with correct not in top %s" format
-                           self.max_rank_for_credit,
-                           self.incorrect_past_max_rank, self.total_instances)
+    output_fraction("  Incorrect, with correct not in top %s" format
+                           max_rank_for_credit,
+                           incorrect_past_max_rank, total_instances)
   }
 }
 
 class GeotagDocumentEval(max_rank_for_credit:Int=10)
     extends EvalWithRank(max_rank_for_credit) {
-  val self.true_dists = mutable.Seq[Double]()
-  val self.degree_dists = mutable.Seq[Double]()
+  val true_dists = mutable.Seq[Double]()
+  val degree_dists = mutable.Seq[Double]()
 
-  def record_result(self, rank:Int, true_dist:Double, degree_dist:Double) {
-    super(GeotagDocumentEval, self).record_result(rank)
-    self.true_dists :+= true_dist
-    self.degree_dists :+= degree_dist
+  def record_result(rank:Int, true_dist:Double, degree_dist:Double) {
+    super(GeotagDocumentEval, this).record_result(rank)
+    true_dists :+= true_dist
+    degree_dists :+= degree_dist
   }
 
-  def output_incorrect_results(self) {
-    super(GeotagDocumentEval, self).output_incorrect_results()
-    self.true_dists.sort()
-    self.degree_dists.sort()
+  def output_incorrect_results() {
+    super(GeotagDocumentEval, this).output_incorrect_results()
+    true_dists.sort()
+    degree_dists.sort()
     def miles_and_km(miledist:Double) = {
       val km_per_mile = 1.609
       "%.2f miles (%.2f km)" format (miledist, miledist*km_per_mile)
     }
     errprint("  Mean true error distance = %s",
-             miles_and_km(mean(self.true_dists)))
+             miles_and_km(mean(true_dists)))
     errprint("  Median true error distance = %s",
-             miles_and_km(median(self.true_dists)))
+             miles_and_km(median(true_dists)))
     errprint("  Mean degree error distance = %.2f degrees",
-             mean(self.degree_dists))
+             mean(degree_dists))
     errprint("  Median degree error distance = %.2f degrees",
-             median(self.degree_dists))
+             median(degree_dists))
   }
 }
 
@@ -1742,34 +1756,34 @@ object GeotagToponymResults {
 class GeotagToponymResults {
 
   // Overall statistics
-  val self.all_toponym = EvalWithCandidateList(self.incorrect_geotag_toponym_reasons) 
+  val all_toponym = EvalWithCandidateList(incorrect_geotag_toponym_reasons) 
   // Statistics when toponym not same as true name of location
-  val self.diff_surface = EvalWithCandidateList(self.incorrect_geotag_toponym_reasons)
+  val diff_surface = EvalWithCandidateList(incorrect_geotag_toponym_reasons)
   // Statistics when toponym not same as true name or short form of location
-  val self.diff_short = EvalWithCandidateList(self.incorrect_geotag_toponym_reasons)
+  val diff_short = EvalWithCandidateList(incorrect_geotag_toponym_reasons)
 
-  def record_geotag_toponym_result(self, correct:Boolean, toponym:String,
+  def record_geotag_toponym_result(correct:Boolean, toponym:String,
                                    trueloc:String, reason:String,
                                    num_candidates:Int) {
-    self.all_toponym.record_result(correct, reason, num_candidates)
+    all_toponym.record_result(correct, reason, num_candidates)
     if (toponym != trueloc) {
-      self.diff_surface.record_result(correct, reason, num_candidates)
-      (short, div) = compute_short_form(trueloc)
+      diff_surface.record_result(correct, reason, num_candidates)
+      val (short, div) = compute_short_form(trueloc)
       if (toponym != short)
-        self.diff_short.record_result(correct, reason, num_candidates)
+        diff_short.record_result(correct, reason, num_candidates)
     }
   }
 
-  def output_geotag_toponym_results(self) {
+  def output_geotag_toponym_results() {
     errprint("Results for all toponyms:")
-    self.all_toponym.output_results()
+    all_toponym.output_results()
     errprint("")
     errprint("Results for toponyms when different from true location name:")
-    self.diff_surface.output_results()
+    diff_surface.output_results()
     errprint("")
     errprint("Results for toponyms when different from either true location name")
     errprint("  or its short form:")
-    self.diff_short.output_results()
+    diff_short.output_results()
     output_resource_usage()
   }
 }
@@ -1780,10 +1794,10 @@ object GeotagDocumentResults {
 
 class GeotagDocumentResults {
 
-  val self.all_document = GeotagDocumentEval()
+  val all_document = GeotagDocumentEval()
   
   // naitr = "num articles in true region"
-  val self.docs_by_naitr = TableByRange([1, 10, 25, 100], GeotagDocumentEval)
+  val docs_by_naitr = TableByRange([1, 10, 25, 100], GeotagDocumentEval)
   
   // Results for documents where the location is at a certain distance
   // from the center of the true statistical region.  The key is measured in
@@ -1793,21 +1807,21 @@ class GeotagDocumentResults {
   // distance is two ways: true distance (in miles or whatever) and "degree
   // distance", as if degrees were a constant length both latitudinally
   // and longitudinally.
-  val self.dist_fraction_increment = 0.25
-  val self.docs_by_degree_dist_to_true_center = collections.defaultdict(GeotagDocumentEval)
-  val self.docs_by_true_dist_to_true_center = collections.defaultdict(GeotagDocumentEval)
+  val dist_fraction_increment = 0.25
+  val docs_by_degree_dist_to_true_center = collections.defaultdict(GeotagDocumentEval)
+  val docs_by_true_dist_to_true_center = collections.defaultdict(GeotagDocumentEval)
   
   // Similar, but distance between location and center of top predicted
   // region.
-  val self.dist_fractions_for_error_dist = Seq(
+  val dist_fractions_for_error_dist = Seq(
         0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8,
         12, 16, 24, 32, 48, 64, 96, 128, 192, 256,
         // We're never going to see these
         384, 512, 768, 1024, 1536, 2048)
-  val self.docs_by_degree_dist_to_pred_center = TableByRange(self.dist_fractions_for_error_dist, GeotagDocumentEval)
-  val self.docs_by_true_dist_to_pred_center = TableByRange(self.dist_fractions_for_error_dist, GeotagDocumentEval)
+  val docs_by_degree_dist_to_pred_center = TableByRange(dist_fractions_for_error_dist, GeotagDocumentEval)
+  val docs_by_true_dist_to_pred_center = TableByRange(dist_fractions_for_error_dist, GeotagDocumentEval)
   
-  def record_geotag_document_result(self, rank:Int, coord:Coord,
+  def record_geotag_document_result(rank:Int, coord:Coord,
                                     pred_latind:Int, pred_longind:Int,
                                     num_arts_in_true_region:Int,
                                     return_stats:Boolean=false) = {
@@ -1819,26 +1833,26 @@ class GeotagDocumentResults {
     val pred_truedist = spheredist(coord, pred_center)
     val pred_degdist = degree_dist(coord, pred_center)
 
-    self.all_document.record_result(rank, pred_truedist, pred_degdist)
-    val naitr = self.docs_by_naitr.get_collector(rank)
+    all_document.record_result(rank, pred_truedist, pred_degdist)
+    val naitr = docs_by_naitr.get_collector(rank)
     naitr.record_result(rank, pred_truedist, pred_degdist)
 
     val (true_latind, true_longind) = coord_to_stat_region_indices(coord)
     val true_center = stat_region_indices_to_center_coord(true_latind, true_longind)
     val true_truedist = spheredist(coord, true_center)
     val true_degdist = degree_dist(coord, true_center)
-    val fracinc = self.dist_fraction_increment
+    val fracinc = dist_fraction_increment
     val rounded_true_truedist = fracinc * floor(true_truedist / fracinc)
     val rounded_true_degdist = fracinc * floor(true_degdist / fracinc)
 
-    self.docs_by_true_dist_to_true_center[rounded_true_truedist].
+    docs_by_true_dist_to_true_center(rounded_true_truedist).
       record_result(rank, pred_truedist, pred_degdist)
-    self.docs_by_degree_dist_to_true_center[rounded_true_degdist].
+    docs_by_degree_dist_to_true_center(rounded_true_degdist).
       record_result(rank, pred_truedist, pred_degdist)
 
-    self.docs_by_true_dist_to_pred_center.get_collector(pred_truedist).
+    docs_by_true_dist_to_pred_center.get_collector(pred_truedist).
       record_result(rank, pred_truedist, pred_degdist)
-    self.docs_by_degree_dist_to_pred_center.get_collector(pred_degdist).
+    docs_by_degree_dist_to_pred_center.get_collector(pred_degdist).
       record_result(rank, pred_truedist, pred_degdist)
 
     if (return_stats) {
@@ -1851,18 +1865,18 @@ class GeotagDocumentResults {
     } else Map[String, Double]()
   }
 
-  def record_geotag_document_other_stat(self, othertype:String) {
-    self.all_document.record_other_stat(othertype)
+  def record_geotag_document_other_stat(othertype:String) {
+    all_document.record_other_stat(othertype)
   }
 
-  def output_geotag_document_results(self, all_results:Boolean=false) {
+  def output_geotag_document_results(all_results:Boolean=false) {
     errprint("")
     errprint("Results for all documents/articles:")
-    self.all_document.output_results()
+    all_document.output_results()
     //if (all_results)
     if (false) {
       errprint("")
-      for ((lower, upper, obj) <- self.docs_by_naitr.iter_ranges()) {
+      for ((lower, upper, obj) <- docs_by_naitr.iter_ranges()) {
         errprint("")
         errprint("Results for documents/articles where number of articles")
         errprint("  in true region is in the range [%s,%s]:",
@@ -1871,9 +1885,9 @@ class GeotagDocumentResults {
       }
       errprint("")
       for ((truedist, obj) <-
-             self.docs_by_true_dist_to_true_center sortBy (_._1)) {
+             docs_by_true_dist_to_true_center sortBy (_._1)) {
         val lowrange = truedist * Opts.miles_per_region
-        val highrange = ((truedist + self.dist_fraction_increment) *
+        val highrange = ((truedist + dist_fraction_increment) *
                          Opts.miles_per_region)
         errprint("")
         errprint("Results for documents/articles where distance to center")
@@ -1883,9 +1897,9 @@ class GeotagDocumentResults {
       }
       errprint("")
       for ((degdist, obj) <-
-             self.docs_by_degree_dist_to_true_center sortBy (_._1)) {
+             docs_by_degree_dist_to_true_center sortBy (_._1)) {
         val lowrange = degdist * degrees_per_region
-        val highrange = ((degdist + self.dist_fraction_increment) *
+        val highrange = ((degdist + dist_fraction_increment) *
                          degrees_per_region)
         errprint("")
         errprint("Results for documents/articles where distance to center")
@@ -1910,9 +1924,9 @@ object Toponym {
   // Construct the list of possible candidate articles for a given toponym
   def construct_candidates(toponym:String) = {
     val lotop = toponym.toLowerCase
-    val articles = ArticleTable.lower_toponym_to_article[lotop]
-    val locs = (Gazetteer.lower_toponym_to_location[lotop] +
-            Gazetteer.lower_toponym_to_division[lotop])
+    val articles = ArticleTable.lower_toponym_to_article(lotop)
+    val locs = (Gazetteer.lower_toponym_to_location(lotop) +
+            Gazetteer.lower_toponym_to_division(lotop))
     for (loc <- locs) {
       if (loc.artmatch && loc.artmatch !in articles)
         articles :+= loc.artmatch
@@ -1920,7 +1934,7 @@ object Toponym {
     articles
   }
 
-  def word_is_toponym(word:String) = {
+  def word_is_toponym(var word:String) = {
     word = word.toLowerCase
     (ArticleTable.lower_toponym_to_article contains word ||
      Gazetteer.lower_toponym_to_location contains word ||
@@ -1942,45 +1956,45 @@ object Toponym {
 //             file contains multiple such documents.
 //
 class GeogWord(val word:String) {
-  var self.is_stop = false
-  var self.is_toponym = false
-  var self.coord = null
-  var self.location = null
-  var self.context = null
-  var self.document = null
+  var is_stop = false
+  var is_toponym = false
+  var coord = null
+  var location = null
+  var context = null
+  var document = null
 }
 
 // Abstract class for reading documents from a test file and evaluating on
 // them.
 abstract class TestFileEvaluator(stratname:String) {
-  var self.documents_processed = 0
+  var documents_processed = 0
 
   type Document
 
   // Return an Iterable listing the documents retrievable from the given
   // filename.
-  def iter_documents(self, filename:String):Iterable[Document]
+  def iter_documents(filename:String):Iterable[Document]
 
   // Return true if document would be skipped; false if processed and
   // evaluated.
-  def would_skip_document(self, doc:Document, doctag:String) = false
+  def would_skip_document(doc:Document, doctag:String) = false
 
   // Return true if document was actually processed and evaluated; false
   // if skipped.
-  def evaluate_document(self, doc:Document, doctag:String):Boolean
+  def evaluate_document(doc:Document, doctag:String):Boolean
 
   // Output results so far.  If 'isfinal', this is the last call, so
   // output more results.
-  def output_results(self, isfinal:Boolean=false):Unit
+  def output_results(isfinal:Boolean=false):Unit
 
-  def evaluate_and_output_results(self, files:Iterable[String]) {
+  def evaluate_and_output_results(files:Iterable[String]) {
     def output_final_results() {
       errprint("")
       errprint("Final results for strategy %s: All %d documents processed:",
-               self.stratname, status.num_processed())
+               stratname, status.num_processed())
       errprint("Ending operation at %s", time.ctime())
-      self.output_results(isfinal=true)
-      errprint("Ending final results for strategy %s", self.stratname)
+      output_results(isfinal=true)
+      errprint("Ending final results for strategy %s", stratname)
     }
 
     val status = StatusMessage("document")
@@ -1990,11 +2004,11 @@ abstract class TestFileEvaluator(stratname:String) {
     var skip_n = 0
     for (filename <- files) {
       errprint("Processing evaluation file %s...", filename)
-      for (doc <- self.iter_documents(filename)) {
+      for (doc <- iter_documents(filename)) {
         // errprint("Processing document: %s", doc)
         val num_processed = status.num_processed()
         val doctag = "#%d" format (1+num_processed)
-        if (self.would_skip_document(doc, doctag))
+        if (would_skip_document(doc, doctag))
           errprint("Skipped document %s", doc)
         else {
           var do_skip = false
@@ -2011,7 +2025,7 @@ abstract class TestFileEvaluator(stratname:String) {
           if (do_skip)
             errprint("Passed over document %s", doctag)
           else
-            assert(self.evaluate_document(doc, doctag))
+            assert(evaluate_document(doc, doctag))
           status.item_processed()
           val new_elapsed = status.elapsed_time()
           val new_processed = status.num_processed()
@@ -2030,10 +2044,10 @@ abstract class TestFileEvaluator(stratname:String) {
           if ((new_elapsed - last_elapsed >= 300 &&
               new_processed - last_processed >= 10)) {
             errprint("Results after %d documents (strategy %s):",
-                status.num_processed(), self.stratname)
-            self.output_results(isfinal=false)
+                status.num_processed(), stratname)
+            output_results(isfinal=false)
             errprint("End of results after %d documents (strategy %s):",
-                status.num_processed(), self.stratname)
+                status.num_processed(), stratname)
             last_elapsed = new_elapsed
             last_processed = new_processed
           }
@@ -2046,26 +2060,26 @@ abstract class TestFileEvaluator(stratname:String) {
 }
   
 abstract class GeotagToponymStrategy {
-  def need_context(self)
-  def compute_score(self, geogword:String, art:Article)
+  def need_context()
+  def compute_score(geogword:String, art:Article)
 }
 
 // Find each toponym explicitly mentioned as such and disambiguate it
 // (find the correct geographic location) using the "link baseline", i.e.
 // use the location with the highest number of incoming links.
 class BaselineGeotagToponymStrategy extends GeotagToponymStrategy {
-  val self.baseline_strategy = baseline_strategy
+  val baseline_strategy = baseline_strategy
 
-  def need_context(self) = false
+  def need_context() = false
 
-  def compute_score(self, geogword:GeogWord, art:Article) = {
-    if (self.baseline_strategy == "internal-link") {
+  def compute_score(geogword:GeogWord, art:Article) = {
+    if (baseline_strategy == "internal-link") {
       if (Opts.context_type == "region")
         art.find_regworddist().get_adjusted_incoming_links
       else
         art.get_adjusted_incoming_links
     }
-    else if (self.baseline_strategy == "num-articles") {
+    else if (baseline_strategy == "num-articles") {
       if (Opts.context_type == "region")
         art.find_regworddist().num_arts_for_links
       else {
@@ -2084,11 +2098,11 @@ class BaselineGeotagToponymStrategy extends GeotagToponymStrategy {
 // (find the correct geographic location) using Naive Bayes, possibly
 // in conjunction with the baseline.
 class NaiveBayesToponymStrategy extends GeotagToponymStrategy {
-  val self.use_baseline = use_baseline
+  val use_baseline = use_baseline
 
-  def need_context(self) = true
+  def need_context() = true
 
-  def compute_score(self, geogword:GeogWord, art:Article) = {
+  def compute_score(geogword:GeogWord, art:Article) = {
     // FIXME FIXME!!! We are assuming that the baseline is "internal-link",
     // regardless of its actual settings.
     val thislinks = art.get_adjusted_incoming_links
@@ -2099,7 +2113,7 @@ class NaiveBayesToponymStrategy extends GeotagToponymStrategy {
       distobj = art.find_regworddist()
     val totalprob = 0.0
     val total_word_weight = 0.0
-    if (!self.use_baseline) {
+    if (!use_baseline) {
       var word_weight = 1.0
       var baseline_weight = 0.0
     }
@@ -2124,7 +2138,7 @@ class NaiveBayesToponymStrategy extends GeotagToponymStrategy {
       total_word_weight += thisweight
       totalprob += thisweight*log(wordprob)
     }
-    if debug("some")
+    if (debug("some"))
       errprint("Computed total word log-likelihood as %s", totalprob)
     // Normalize probability according to the total word weight
     if (total_word_weight > 0)
@@ -2133,12 +2147,12 @@ class NaiveBayesToponymStrategy extends GeotagToponymStrategy {
     // relative weights
     totalprob *= word_weight
     totalprob += baseline_weight*log(thislinks)
-    if debug("some")
+    if (debug("some"))
       errprint("Computed total log-likelihood as %s", totalprob)
     totalprob
   }
 
-  def need_context(self) = true
+  def need_context() = true
 
   def compute_score(geogword:GeogWord, art:Article) =
     art.get_adjusted_incoming_links
@@ -2146,58 +2160,59 @@ class NaiveBayesToponymStrategy extends GeotagToponymStrategy {
 
 abstract class GeotagToponymEvaluator(strategy:GeotagToponymStrategy,
     stratname:String) extends TestFileEvaluator(stratname) {
-  val self.results = GeotagToponymResults()
+  val results = GeotagToponymResults()
   
   type Document = Iterable[GeogWord]
 
   // Given an evaluation file, read in the words specified, including the
   // toponyms.  Mark each word with the "document" (e.g. article) that it's
   // within.
-  def iter_geogwords(self, filename:String)
+  def iter_geogwords(filename:String)
 
   // Retrieve the words yielded by iter_geowords() and separate by "document"
   // (e.g. article); yield each "document" as a list of such GeogWord objects.
-  // If self.compute_context, also generate the set of "context" words used for
+  // If compute_context, also generate the set of "context" words used for
   // disambiguation (some window, e.g. size 20, of words around each
   // toponym).
-  def iter_documents(self, filename:String) {
+  def iter_documents(filename:String) {
     def return_word(word) = {
       if (word.is_toponym) {
-        if debug("lots")
+        if (debug("lots")) {
           errprint("Saw loc %s with true coordinates %s, true location %s",
                    word.word, word.coord, word.location)
+        }
       }
       else {
-        if debug("tons")
+        if (debug("tons"))
           errprint("Non-toponym %s", word.word)
       }
       word
     }
 
-    for ((k, g) <- self.iter_geogwords(filename).groupBy(_.document)) yield {
+    for ((k, g) <- iter_geogwords(filename).groupBy(_.document)) yield {
       if (k != null)
         errprint("Processing document %s...", k)
       val results = (for (word <- g) yield return_word(word))
 
       // Now compute context for words
       val nbcl = Opts.naive_bayes_context_len
-      if (self.strategy.need_context()) {
+      if (strategy.need_context()) {
         // First determine whether each word is a stopword
         for (i <- 0 until results.length) {
           // If a word tagged as a toponym is homonymous with a stopword, it
           // still isn't a stopword.
-          results[i].is_stop = (!results[i].coord &&
-                                stopwords contains results[i].word)
+          results(i).is_stop = (!results(i).coord &&
+                                stopwords contains results(i).word)
         }
         // Now generate context for toponyms
         for (i <- 0 until results.length) {
-          if (results[i].coord) {
+          if (results(i).coord) {
             // Select up to naive_bayes_context_len words on either side;
             // skip stopwords.  Associate each word with the distance away from
             // the toponym.
             val minind = 0 max i-nbcl
             val maxind = results.length min i+nbcl+1
-            results[i].context =
+            results(i).context =
                for {
                  (dist, x) <-
                   ((i-minind until i-maxind) zip results.slice(minind, maxind))
@@ -2222,7 +2237,7 @@ abstract class GeotagToponymEvaluator(strategy:GeotagToponymStrategy,
   // COMPUTE_SCORE is passed two arguments: GEOGWORD and the location to
   // compute the score of.
 
-  def disambiguate_toponym(self, geogword:GeogWord) {
+  def disambiguate_toponym(geogword:GeogWord) {
     val toponym = geogword.word
     val coord = geogword.coord
     if (coord == null) return // If no ground-truth, skip it
@@ -2230,20 +2245,21 @@ abstract class GeotagToponymEvaluator(strategy:GeotagToponymStrategy,
     var bestscore = -1e308
     var bestart = null
     if (articles == null) {
-      if debug("some")
+      if (debug("some"))
         errprint("Unable to find any possibilities for %s", toponym)
       var correct = false
     }
     else {
-      if debug("some")
+      if (debug("some")) {
         errprint("Considering toponym %s, coordinates %s",
                  toponym, coord)
         errprint("For toponym %s, %d possible articles",
                  toponym, articles.length)
+      }
       for (art <- articles) {
-        if debug("some")
+        if (debug("some"))
             errprint("Considering article %s", art)
-        val thisscore = self.strategy.compute_score(geogword, art)
+        val thisscore = strategy.compute_score(geogword, art)
         if (thisscore > bestscore) {
           bestscore = thisscore
           bestart = art 
@@ -2269,7 +2285,7 @@ abstract class GeotagToponymEvaluator(strategy:GeotagToponymStrategy,
         else if (good_arts.length > 1)
           reason = "incorrect_with_multiple_correct_candidates"
         else {
-          val goodart = good_arts[0]
+          val goodart = good_arts(0)
           if (goodart.incoming_links == null)
             reason = "incorrect_one_correct_candidate_missing_link_info"
           else
@@ -2285,24 +2301,23 @@ abstract class GeotagToponymEvaluator(strategy:GeotagToponymStrategy,
     else
       errprint("incorrect, reason = %s", reason)
 
-    self.results.record_geotag_toponym_result(correct, toponym,
+    results.record_geotag_toponym_result(correct, toponym,
         geogword.location, reason, num_candidates)
 
     if (debug("some") && bestart) {
-      errprint("Best article = %s, score = %s, dist = %s, correct %s"
-               , (bestart, bestscore, bestart.distance_to_coord(coord),
-                  correct))
+      errprint("Best article = %s, score = %s, dist = %s, correct %s",
+        bestart, bestscore, bestart.distance_to_coord(coord), correct)
     }
   }
 
-  def evaluate_document(self, doc:Iterable[GeogWord], doctag:String) = {
+  def evaluate_document(doc:Iterable[GeogWord], doctag:String) = {
     for (geogword <- doc)
-       self.disambiguate_toponym(geogword)
+       disambiguate_toponym(geogword)
     true
   }
 
-  def output_results(self, isfinal:Boolean=false) {
-    self.results.output_geotag_toponym_results()
+  def output_results(isfinal:Boolean=false) {
+    results.output_geotag_toponym_results()
   }
 } 
 
@@ -2343,7 +2358,7 @@ class TRCoNLLGeotagToponymEvaluator(strategy:GeotagToponymStrategy,
   //...
   //
   // Yield GeogWord objects, one per word.
-  def iter_geogwords(self, filename:String) {
+  def iter_geogwords(filename:String) {
     var in_loc = false
     var wordstruct = null:GeogWord
     for (line <- uchompopen(filename, errors="replace")) {
@@ -2365,7 +2380,7 @@ class TRCoNLLGeotagToponymEvaluator(strategy:GeotagToponymStrategy,
           else
             yield wordstruct
         }
-        else if (in_loc && ty[0] == '>') {
+        else if (in_loc && ty(0) == '>') {
           val ss = """\t""".r.split(ty)
           require(splits.length == 5)
           val (lat, long, fulltop) = (ss(2), ss(3), ss(4))
@@ -2391,17 +2406,17 @@ class TRCoNLLGeotagToponymEvaluator(strategy:GeotagToponymStrategy,
 
 class WikipediaGeotagToponymEvaluator(strategy:GeotagToponymStrategy,
     stratname:String) extends GeotagToponymEvaluator(strategy, stratname) {
-  def iter_geogwords(self, filename:String) {
+  def iter_geogwords(filename:String) {
     var title = null
     for (line <- uchompopen(filename, errors="replace")) {
       if (rematch("Article title: (.*)$", line))
-        title = m_[1]
+        title = m_(1)
       else if (rematch("Link: (.*)$", line)) {
-        val args = m_[1].split('|')
-        val trueart = args[0]
+        val args = m_(1).split('|')
+        val trueart = args(0)
         var linkword = trueart
         if (args.length > 1)
-          linkword = args[1]
+          linkword = args(1)
         var word = GeogWord(linkword)
         word.is_toponym = true
         word.location = trueart
@@ -2421,22 +2436,22 @@ class WikipediaGeotagToponymEvaluator(strategy:GeotagToponymStrategy,
 }
 
 abstract class GeotagDocumentStrategy {
-  def return_ranked_regions(self, worddist:WordDist)
+  def return_ranked_regions(worddist:WordDist)
 }
 
 class BaselineGeotagDocumentStrategy(baseline_strategy:String)
     extends GeotagDocumentStrategy {
-  var self.cached_ranked_mps = null
+  var cached_ranked_mps = null
 
-  def ranked_regions_random(self, worddist:WordDist) = {
+  def ranked_regions_random(worddist:WordDist) = {
     val regions = list(StatRegion.iter_nonempty_regions())
     random.shuffle(regions)
     (for (reg <- regions) yield (reg, 0))
   }
 
-  def ranked_most_popular_regions(self, worddist:WordDist) = {
-    if (self.cached_ranked_mps == null) {
-      self.cached_ranked_mps = (
+  def ranked_most_popular_regions(worddist:WordDist) = {
+    if (cached_ranked_mps == null) {
+      cached_ranked_mps = (
         (for (reg <- StatRegion.iter_nonempty_regions)
           yield (reg, if (baseline_strategy == "internal_link")
                          reg.worddist.get_adjusted_incoming_links
@@ -2444,41 +2459,41 @@ class BaselineGeotagDocumentStrategy(baseline_strategy:String)
         sortWith (_._2 > _._2)
       )
     }
-    self.cached_ranked_mps
+    cached_ranked_mps
   }
 
-  def ranked_regions_regdist_most_common_toponym(self, worddist:WordDist) = {
+  def ranked_regions_regdist_most_common_toponym(worddist:WordDist) = {
     // Look for a toponym, then a proper noun, then any word.
     var maxword = find_most_common_word(worddist,
-        word => word != null && word[0].isUpper() && word_is_toponym(word))
+        word => word != null && word(0).isUpper() && word_is_toponym(word))
     if (maxword == null) {
       maxword = find_most_common_word(worddist,
-        word => word != null && word[0].isUpper())
+        word => word != null && word(0).isUpper())
     }
     if (maxword == null)
       maxword = find_most_common_word(worddist, x => true)
     RegionDist.get_region_dist(maxword).get_ranked_regions()
   }
 
-  def ranked_regions_link_most_common_toponym(self, worddist:WordDist) = {
+  def ranked_regions_link_most_common_toponym(worddist:WordDist) = {
     var maxword = find_most_common_word(worddist,
-        word => word != null && word[0].isUpper() && word_is_toponym(word))
+        word => word != null && word(0).isUpper() && word_is_toponym(word))
     if (maxword == null) {
       maxword = find_most_common_word(worddist,
           word => word_is_toponym(word))
     }
-    if debug("commontop")
+    if (debug("commontop"))
       errprint("  maxword = %s", maxword)
     val cands = 
       if (maxword != null) construct_candidates(maxword) else Seq[Article]()
-    if debug("commontop")
+    if (debug("commontop"))
       errprint("  candidates = %s", cands)
     // Sort candidate list by number of incoming links
     val candlinks =
        (for (cand <- cands) yield (cand, cand.get_adjusted_incoming_links)).
          // sort by second element of tuple, in reverse order
          sortWith(_._2 > _._2)
-    if debug("commontop")
+    if (debug("commontop"))
       errprint("  sorted candidates = %s", candlinks)
 
     def find_good_regions_for_coord(
@@ -2495,7 +2510,7 @@ class BaselineGeotagDocumentStrategy(baseline_strategy:String)
     // Convert to regions
     val candregs = find_good_regions_for_coord(candlinks)
 
-    if debug("commontop")
+    if (debug("commontop"))
       errprint("  region candidates = %s", candregs)
 
     // Return an iterator over all elements in all the given sequences, omitting
@@ -2514,44 +2529,44 @@ class BaselineGeotagDocumentStrategy(baseline_strategy:String)
 
     // Append random regions and remove duplicates
     merge_numbered_sequences_uniquely(candregs,
-      self.ranked_regions_random(worddist))
+      ranked_regions_random(worddist))
   }
 
-  def return_ranked_regions(self, worddist:WordDist) = {
-    if (self.baseline_strategy == "link-most-common-toponym")
-      self.ranked_regions_link_most_common_toponym(worddist)
-    else if (self.baseline_strategy == "regdist-most-common-toponym")
-      self.ranked_regions_regdist_most_common_toponym(worddist)
-    else if (self.baseline_strategy == "random")
-      self.ranked_regions_random(worddist)
+  def return_ranked_regions(worddist:WordDist) = {
+    if (baseline_strategy == "link-most-common-toponym")
+      ranked_regions_link_most_common_toponym(worddist)
+    else if (baseline_strategy == "regdist-most-common-toponym")
+      ranked_regions_regdist_most_common_toponym(worddist)
+    else if (baseline_strategy == "random")
+      ranked_regions_random(worddist)
     else
-      self.ranked_most_popular_regions(worddist)
+      ranked_most_popular_regions(worddist)
   }
 }
 
 class KLDivergenceStrategy(partial:Boolean=true, symmetric:Boolean=false)
     extends GeotagDocumentStrategy {
 
-  def return_ranked_regions(self, worddist:WordDist) = {
+  def return_ranked_regions(worddist:WordDist) = {
     val article_pq = PriorityQueue()
     for (stat_region <- StatRegion.iter_nonempty_regions(nonempty_word_dist=true)) {
       val inds = (stat_region.latind, stat_region.longind)
-      if debug("lots")
-        (latind, longind) = inds
+      if (debug("lots")) {
+        val (latind, longind) = inds
         val coord = region_indices_to_coord(latind, longind)
-        errprint("Nonempty region at indices %s,%s = coord %s, num_articles = %s"
-                 , (latind, longind, coord,
-                    stat_region.worddist.num_arts_for_word_dist))
+        errprint("Nonempty region at indices %s,%s = coord %s, num_articles = %s" ,
+          latind, longind, coord, stat_region.worddist.num_arts_for_word_dist)
+      }
 
       var kldiv = fast_kl_divergence(worddist, stat_region.worddist,
-                                 var partial=self.partial)
-      if (self.symmetric) {
+                                 var partial=partial)
+      if (symmetric) {
         val kldiv2 = fast_kl_divergence(stat_region.worddist, worddist,
-                                    partial=self.partial)
+                                    partial=partial)
         kldiv = (kldiv + kldiv2) / 2.0
       }
       //kldiv = worddist.test_kl_divergence(stat_region.worddist,
-      //                           partial=self.partial)
+      //                           partial=partial)
       //errprint("For region %s, KL divergence %.3f", stat_region, kldiv)
       article_pq.add_task(kldiv, stat_region)
     }
@@ -2564,7 +2579,7 @@ class KLDivergenceStrategy(partial:Boolean=true, symmetric:Boolean=false)
         case IndexOutOfBoundsException => break
       }
     }
-    if debug("kldiv")
+    if (debug("kldiv")) {
       // Print out the words that contribute most to the KL divergence, for
       // the top-ranked regions
       val num_contrib_regions = 5
@@ -2572,9 +2587,9 @@ class KLDivergenceStrategy(partial:Boolean=true, symmetric:Boolean=false)
       errprint("")
       errprint("KL-divergence debugging info:")
       for (i <- 0 until (regions.length min num_contrib_regions)) {
-        val (region, kldiv) = regions[i]
+        val (region, kldiv) = regions(i)
         val (kldiv, contribs) = worddist.slow_kl_divergence(region.worddist,
-            partial=self.partial, return_contributing_words=true)
+            partial=partial, return_contributing_words=true)
         errprint("  At rank #%s, region %s:", i + 1, region)
         errprint("    %30s  %s", "Word", "KL-div contribution")
         errprint("    %s", "-"*50)
@@ -2595,23 +2610,23 @@ class KLDivergenceStrategy(partial:Boolean=true, symmetric:Boolean=false)
 class CosineSimilarityStrategy(smoothed:Boolean=false, partial:Boolean=false)
     extends GeotagDocumentStrategy {
 
-  def return_ranked_regions(self, worddist:WordDist) = {
+  def return_ranked_regions(worddist:WordDist) = {
     val article_pq = PriorityQueue()
     for (stat_region <- StatRegion.iter_nonempty_regions(nonempty_word_dist=true)) {
       val inds = (stat_region.latind, stat_region.longind)
-      if debug("lots")
-        (latind, longind) = inds
+      if (debug("lots")) {
+        val (latind, longind) = inds
         val coord = region_indices_to_coord(latind, longind)
-        errprint("Nonempty region at indices %s,%s = coord %s, num_articles = %s"
-                 , (latind, longind, coord,
-                    stat_region.worddist.num_arts_for_word_dist))
-      if (self.smoothed) {
-        var cossim = fast_smoothed_cosine_similarity(worddist, stat_region.worddist,
-                                   var partial=self.partial)
+        errprint("Nonempty region at indices %s,%s = coord %s, num_articles = %s",
+          latind, longind, coord, stat_region.worddist.num_arts_for_word_dist)
       }
-      else {
-        cossim = fast_cosine_similarity(worddist, stat_region.worddist,
-                                   partial=self.partial)
+      var cossim =
+        if (smoothed)
+          fast_smoothed_cosine_similarity(worddist, stat_region.worddist,
+            partial=partial)
+        else
+          fast_cosine_similarity(worddist, stat_region.worddist,
+                                   partial=partial)
       }
       assert(cossim >= 0.0)
       // Just in case of round-off problems
@@ -2637,11 +2652,11 @@ class CosineSimilarityStrategy(smoothed:Boolean=false, partial:Boolean=false)
 class NaiveBayesDocumentStrategy(use_baseline:Boolean=true)
     extends GeotagDocumentStrategy {
 
-  def return_ranked_regions(self, worddist:WordDist) = {
+  def return_ranked_regions(worddist:WordDist) = {
 
     // Determine respective weightings
     val (word_weight, baseline_weight) = (
-      if (self.use_baseline) {
+      if (use_baseline) {
         if (Opts.naive_bayes_weighting == "equal") (1.0, 1.0)
         else {
           val bw = Opts.baseline_weight.toDouble
@@ -2665,7 +2680,7 @@ class NaiveBayesDocumentStrategy(use_baseline:Boolean=true)
 }
 
 class PerWordRegionDistributionsStrategy extends GeotagDocumentStrategy {
-  def return_ranked_regions(self, worddist:WordDist) = {
+  def return_ranked_regions(worddist:WordDist) = {
     val regdist = RegionDist.get_region_dist_for_word_dist(worddist)
     regdist.get_ranked_regions()
   }
@@ -2673,13 +2688,13 @@ class PerWordRegionDistributionsStrategy extends GeotagDocumentStrategy {
 
 abstract class GeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
     stratname:String) extends TestFileEvaluator(stratname) {
-  val self.results = GeotagDocumentResults()
+  val results = GeotagDocumentResults()
 
   // FIXME: Seems strange to have a static function like this called here
   StatRegion.initialize_regions()
 
-  def output_results(self, isfinal:Boolean=false) {
-    self.results.output_geotag_document_results(all_results=isfinal)
+  def output_results(isfinal:Boolean=false) {
+    results.output_geotag_document_results(all_results=isfinal)
   }
 }
 
@@ -2703,7 +2718,7 @@ class WikipediaGeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
   register_list_debug_param("gridrank")
   debugint("gridranksize") = "11"
 
-  def iter_documents(self, filename:String) = {
+  def iter_documents(filename:String) = {
     for (art <- ArticleTable.articles_by_split[Opts.eval_set])
       yield art
   }
@@ -2728,29 +2743,29 @@ class WikipediaGeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
     //if (title != null)
     //  yield (title, words)
 
-  override def would_skip_document(self, article:Article, doctag:String) = {
+  override def would_skip_document(article:Article, doctag:String) = {
     if (article.dist == null) {
       // This can (and does) happen when --max-time-per-stage is set,
       // so that the counts for many articles don't get read in.
       if (Opts.max_time_per_stage == 0 && Opts.num_training_docs == 0)
         warning("Can't evaluate article %s without distribution", article)
-      self.results.record_geotag_document_other_stat("Skipped articles")
+      results.record_geotag_document_other_stat("Skipped articles")
       true
     }
     false
   }
 
-  def evaluate_document(self, article:Article, doctag:String):Boolean = {
-    if (self.would_skip_document(article, doctag))
+  def evaluate_document(article:Article, doctag:String):Boolean = {
+    if (would_skip_document(article, doctag))
       return false
     assert(article.dist.finished)
     val (true_latind, true_longind) = coord_to_stat_region_indices(article.coord)
     val true_statreg = StatRegion.find_region_for_coord(article.coord)
     val naitr = true_statreg.worddist.num_arts_for_word_dist
-    if debug("lots") || debug("commontop")
+    if (debug("lots") || debug("commontop"))
       errprint("Evaluating article %s with %s word-dist articles in true region",
                article, naitr)
-    val regs = self.strategy.return_ranked_regions(article.dist)
+    val regs = strategy.return_ranked_regions(article.dist)
     var rank = 1
     for (reg, val <- regs) breakable {
       if (reg.latind == true_latind && reg.longind == true_longind)
@@ -2760,11 +2775,11 @@ class WikipediaGeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
     else
       rank = 1000000000
     val want_indiv_results = !Opts.no_individual_results
-    val stats = self.results.record_geotag_document_result(rank, article.coord,
-        regs[0][0].latind, regs[0][0].longind, num_arts_in_true_region=naitr,
+    val stats = results.record_geotag_document_result(rank, article.coord,
+        regs(0)[0].latind, regs(0)[0].longind, num_arts_in_true_region=naitr,
         val return_stats=want_indiv_results)
     if (naitr == 0) {
-      self.results.record_geotag_document_other_stat(
+      results.record_geotag_document_other_stat(
           "Articles with no training articles in region")
     }
     if (want_indiv_results) {
@@ -2775,13 +2790,13 @@ class WikipediaGeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
       errprint("%s:  true region: %s", doctag, true_statreg)
       for (i <- 0 until 5) {
         errprint("%s:  Predicted region (at rank %s): %s",
-            doctag, i+1, regs[i][0])
+            doctag, i+1, regs(i)[0])
       }
       errprint("%s:  Distance %.2f miles to true region center at %s",
                doctag, stats["true_truedist"], stats["true_center"])
       errprint("%s:  Distance %.2f miles to predicted region center at %s",
                doctag, stats["pred_truedist"], stats["pred_center"])
-      assert(doctag[0] == '#')
+      assert(doctag(0) == '#')
       if ((debug("gridrank") || debuglist("gridrank") contains doctag[1)]) {
         val grsize = debugval("gridranksize").toInt
         val min_latind = true_latind - grsize // 2
@@ -2837,7 +2852,7 @@ class PCLTravelGeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
   case class TitledDocument(val title:String, val text:String)
   type Document = TitledDocument
 
-  def iter_documents(self, filename:String) = {
+  def iter_documents(filename:String) = {
     // Find XML nodes using depth-first search.  "match" is either a
     // string (match localName on that string) or a predicate.
     def find_node_dfs(node:Elem, localname:String, artmatch:Elem => Boolean) = {
@@ -2868,7 +2883,7 @@ class PCLTravelGeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
     } yield TitledDocument(headtext, text)
   }
 
-  def evaluate_document(self, doc:TitledDocument, doctag:String) = {
+  def evaluate_document(doc:TitledDocument, doctag:String) = {
     val dist = WordDist()
     val the_stopwords =
       if (Opts.include_stopwords_in_article_dists) Set[String]()
@@ -2879,13 +2894,13 @@ class PCLTravelGeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
                      stopwords=the_stopwords)
     }
     dist.finish(minimum_word_count=Opts.minimum_word_count)
-    val regs = self.strategy.return_ranked_regions(dist)
+    val regs = strategy.return_ranked_regions(dist)
     errprint("")
     errprint("Article with title: %s", doc.title)
     val num_regs_to_show = 5
     for ((rank, regval) <- (1 to num_regs_to_show) zip regs) {
       val (reg, vall) = regval
-      if debug("struct")
+      if (debug("struct"))
         errprint("  Rank %d, goodness %g:", rank, vall)
         print_structure(reg.struct(), indent=4)
       else
@@ -2971,7 +2986,7 @@ object ProcessFiles {
     // file, so we need a way of regenerating it using the intersection of
     // articles in the article-data file we actually used for the experiments
     // and the word-count file we used.
-    if debug("wordcountarts")
+    if (debug("wordcountarts"))
       // Change this if you want a different file name
       val wordcountarts_filename = "wordcountarts-combined-article-data.txt"
       val wordcountarts_file = open(wordcountarts_filename, "w")
@@ -2988,9 +3003,9 @@ object ProcessFiles {
         ArticleTable.num_articles_with_word_counts_but_not_in_table += 1
         return
       }
-      if debug("wordcountarts")
+      if (debug("wordcountarts"))
         art.output_row(wordcountarts_file, outfields, field_types)
-      ArticleTable.num_word_count_articles_by_split[art.split] += 1
+      ArticleTable.num_word_count_articles_by_split(art.split) += 1
       // If we are evaluating on the dev set, skip the test set and vice
       // versa, to save memory and avoid contaminating the results.
       if (art.split != "training" && art.split != Opts.eval_set)
@@ -3040,7 +3055,7 @@ object ProcessFiles {
               if (!(stopwords contains word) ||
                   Opts.include_stopwords_in_article_dists) {
                 total_tokens += count
-                wordhash[word] += count
+                wordhash(word) += count
               }
             }
             case _ =>
@@ -3052,7 +3067,7 @@ object ProcessFiles {
       one_article_probs()
     }
   
-    if debug("wordcountarts")
+    if (debug("wordcountarts"))
       wordcountarts_file.close()
     errprint("Finished reading distributions from %s articles.", status.num_processed())
     ArticleTable.num_articles_with_word_counts = status.num_processed()
@@ -3070,9 +3085,9 @@ object ProcessFiles {
     val total_arts_with_dists = 0
     for ((split, totaltoks) <- ArticleTable.word_tokens_by_split.iteritems()) {
       errprint("For split '%s':", split)
-      val arts_in_table = ArticleTable.articles_by_split[split].length
-      val arts_with_word_counts = ArticleTable.num_word_count_articles_by_split[split]
-      val arts_with_dists = ArticleTable.num_dist_articles_by_split[split]
+      val arts_in_table = ArticleTable.articles_by_split(split).length
+      val arts_with_word_counts = ArticleTable.num_word_count_articles_by_split(split)
+      val arts_with_dists = ArticleTable.num_dist_articles_by_split(split)
       total_arts_in_table += arts_in_table
       total_arts_with_word_counts += arts_with_word_counts
       total_arts_with_dists += arts_with_dists
@@ -3110,7 +3125,7 @@ object ProcessFiles {
   // in toponyms_seen_in_eval_files.
   def count_toponyms_in_file(fname:String) {
     def count_toponyms(geogword:GeogWord) {
-      toponyms_seen_in_eval_files[geogword.word.toLowerCase] += 1
+      toponyms_seen_in_eval_files(geogword.word.toLowerCase) += 1
     }
     process_eval_file(fname, count_toponyms, compute_context=false,
                       val only_toponyms=true)
@@ -3167,24 +3182,24 @@ object WorldGazetteer {
   // For localities, add them to the region-map that covers the earth if
   // ADD_TO_REGION_MAP is true.
 
-  def match_world_gazetteer_entry(cls, line:String) {
+  def match_world_gazetteer_entry(line:String) {
     // Split on tabs, make sure at least 11 fields present and strip off
     // extra whitespace
-    var fields = re.split("""\t""", line.trim) ++ Seq.fill(11)("")
+    var fields = """\t""".r.split(line.trim) ++ Seq.fill(11)("")
     fields = (for (x <- fields.slice(0, 11)) yield x.trim)
     Seq(id, name, altnames, orig_script_name, typ, population, lat, long,
      div1, div2, div3) = fields
 
     // Skip places without coordinates
     if (lat == "" || long == "") {
-      if debug("lots")
+      if (debug("lots"))
         errprint("Skipping location %s (div %s/%s/%s) without coordinates",
                  name, div1, div2, div3)
       return
     }
 
     if (lat == "0" && long == "9999") {
-      if debug("lots")
+      if (debug("lots"))
         errprint("Skipping location %s (div %s/%s/%s) with bad coordinates",
                  name, div1, div2, div3)
       return
@@ -3192,9 +3207,9 @@ object WorldGazetteer {
 
     // Create and populate a Locality object
     val loc = Locality(name, Coord(lat.toInt / 100., long.toInt / 100.),
-      ty=typ, altnames=if (altnames != null) re.split(", ", altnames) else null)
+      ty=typ, altnames=if (altnames != null) ", ".r.split(altnames) else null)
     loc.div = Division.find_division_note_point(loc, (div1, div2, div3))
-    if debug("lots")
+    if (debug("lots"))
       errprint("Saw location %s (div %s/%s/%s) with coordinates %s",
                loc.name, div1, div2, div3, loc.coord)
 
@@ -3204,10 +3219,10 @@ object WorldGazetteer {
     // for ease in matching.
     for (name <- Seq(loc.name) + loc.altnames) {
       val loname = name.toLowerCase
-      if debug("lots")
+      if (debug("lots"))
         errprint("Noting lower_toponym_to_location for toponym %s, canonical name %s"
                  , (name, loc.name))
-      cls.lower_toponym_to_location[loname] :+= loc
+      lower_toponym_to_location(loname) :+= loc
     }
 
     // We start out looking for articles whose distance is very close,
@@ -3220,14 +3235,14 @@ object WorldGazetteer {
     }
 
     if (artmatch == null) 
-      if debug("lots")
+      if (debug("lots"))
         errprint("Unmatched name %s", loc.name)
       return
     
     // Record the match.
     loc.artmatch = artmatch
     artmatch.location = loc
-    if debug("lots")
+    if (debug("lots"))
       errprint("Matched location %s (coord %s) with article %s, dist=%s"
                , (loc.name, loc.coord, artmatch,
                   spheredist(loc.coord, artmatch.coord)))
@@ -3237,15 +3252,15 @@ object WorldGazetteer {
   // Wikipedia article matching each entry in the gazetteer.  For localities,
   // add them to the region-map that covers the earth if ADD_TO_REGION_MAP is
   // true.
-  def read_world_gazetteer_and_match(cls, filename:String) {
+  def read_world_gazetteer_and_match(filename:String) {
     errprint("Matching gazetteer entries in %s...", filename)
     val status = StatusMessage("gazetteer entry")
 
     // Match each entry in the gazetteer
     for (line <- uchompopen(filename)) breakable {
-      if debug("lots")
+      if (debug("lots"))
         errprint("Processing line: %s", line)
-      cls.match_world_gazetteer_entry(line)
+      match_world_gazetteer_entry(line)
       if (status.item_processed(maxtime=Opts.max_time_per_stage))
         break
     }
@@ -3262,77 +3277,78 @@ object WorldGazetteer {
 
 class WikiDisambigProgram extends NLPProgram {
 
-  def populate_options(self, op:OptionParser) = {
-    val canon_options = Map[String,String]()
-
-    //val parser = new OptionParser("scopt")
+  def populate_options(op:OptionParser) = {
     //////////// Input files
-    //opt("stopwords-file", "<file>", """File containing list of stopwords.""")
-    //opt("a", "article-data-file", "<file>",
-    //    //action="append",
-    //    """File containing info about Wikipedia articles.""")
-    //opt("gf", "gazetteer-file", "<file>",
-    //    """File containing gazetteer information to match.""")
-    //choiceOpt("gt", "gazetteer-type",
-    //              //default="world",
-    //              var choices=["world", "db"],
-    //              help="""Type of gazetteer file specified using --gazetteer;
-//default '%default'.""")
-    op.add_option("--counts-file", "--cf", action="append",
-                  help="""File containing output from a prior run of
+    op.option[String]("stopwords-file",
+      metavar="FILE",
+      help="""File containing list of stopwords.""")
+    op.multiOption[String]("a", "article-data-file",
+      metavar="FILE",
+      help="""File containing info about Wikipedia articles.""")
+    op.option[String]("gf", "gazetteer-file",
+      help="""File containing gazetteer information to match.""")
+    op.option[String]("gt", "gazetteer-type",
+      metavar="FILE",
+      default="world", choices=Seq("world", "db"),
+      help="""Type of gazetteer file specified using --gazetteer;
+default '%default'.""")
+    op.multiOption[String]("counts-file", "cf",
+      metavar="FILE",
+      help="""File containing output from a prior run of
 --output-counts, listing for each article the words in the article and
-associated counts.""",
-                  metavar="FILE")
-    op.add_option("-e", "--eval-file", "--e",
-                  help="""File or directory containing files to evaluate on.
-Each file is read in and then disambiguation is performed.""",
-                  metavar="FILE")
-    op.add_option("-f", "--eval-format", "--f", type="choice",
-                  var default="wiki", choices=["tr-conll", "wiki", "raw-text",
-                                           "pcl-travel"],
-                  help="""Format of evaluation file(s).  Default '%default'.""")
-    op.add_option("--eval-set", "--es", type="choice",
-                  default="dev", choices=["dev", "devel", "test"],
-                  help="""Set to use for evaluation when --eval-format=wiki
+associated counts.""")
+    op.option[String]("e", "eval-file",
+      metavar="FILE",
+      """File or directory containing files to evaluate on.
+Each file is read in and then disambiguation is performed.""")
+    op.option[String]("f", "eval-format",
+      default="wiki",
+      choices=Seq("tr-conll", "wiki", "raw-text", "pcl-travel"),
+      help="""Format of evaluation file(s).  Default '%default'.""")
+    op.option[String]("eval-set", "es",
+      default="dev",
+      choices=Seq("dev", "test"),
+      canonicalize=Map("dev"->Seq("devel"))
+      help="""Set to use for evaluation when --eval-format=wiki
 and --mode=geotag-documents ('dev' or 'devel' for the development set,
 'test' for the test set).  Default '%default'.""")
-    canon_options["eval_set"] = {"devel":"dev"}
 
     /////////// Misc options for handling distributions
-    op.add_option("--preserve-case-words", "--pcw", action="store_true",
-                  default=false,
-                  help="""Don't fold the case of words used to compute and
+    op.flag("preserve-case-words", "pcw",
+      help="""Don't fold the case of words used to compute and
 match against article distributions.  Note that this does not apply to
 toponyms; currently, toponyms are always matched case-insensitively.""")
-    op.add_option("--include-stopwords-in-article-dists", action="store_true",
-                  default=false,
-                  help="""Include stopwords when computing word
+    op.flag("include-stopwords-in-article-dists",
+      help="""Include stopwords when computing word
 distributions.""")
-    op.add_option("--naive-bayes-context-len", "--nbcl", type="int", default=10,
-                  help="""Number of words on either side of a toponym to use
+    op.option[Int]("naive-bayes-context-len", "nbcl",
+      default=10,
+      help="""Number of words on either side of a toponym to use
 in Naive Bayes matching.  Default %default.""")
-    op.add_option("--minimum-word-count", "--mwc", type="int", default=1,
-                  help="""Minimum count of words to consider in word
+    op.option[Int]("minimum-word-count", "mwc",
+      default=1,
+      help="""Minimum count of words to consider in word
 distributions.  Words whose count is less than this value are ignored.""")
 
     /////////// Misc options for controlling matching
-    op.add_option("--max-dist-for-close-match", "--mdcm", type="float",
-                  default=80,
-                  help="""Maximum number of miles allowed when looking for a
+    op.option[Double]("max-dist-for-close-match", "mdcm",
+      default=80,
+      help="""Maximum number of miles allowed when looking for a
 close match.  Default %default.""")
-    op.add_option("--max-dist-for-outliers", "--mdo", type="float", default=200,
-                  help="""Maximum number of miles allowed between a point and
+    op.option[Double]("max-dist-for-outliers", "mdo",
+      default=200,
+      help="""Maximum number of miles allowed between a point and
 any others in a division.  Points farther away than this are ignored as
 "outliers" (possible errors, etc.).  Default %default.""")
 
     /////////// Basic options for determining operating mode and strategy
-    op.add_option("-m", "--mode", "--m", type="choice",
-                  default="geotag-documents",
-                  choices=["geotag-toponyms",
-                           "geotag-documents",
-                           "generate-kml",
-                           "segment-geotag-documents"],
-                  help="""Action to perform.
+    op.option[String]("m", "mode",
+      default="geotag-documents",
+      choices=Seq("geotag-toponyms",
+                  "geotag-documents",
+                  "generate-kml",
+                  "segment-geotag-documents"),
+      help="""Action to perform.
 
 'geotag-documents' finds the proper location for each document (or article)
 in the test set.
@@ -3352,24 +3368,57 @@ specify the words whose distributions should be outputted.  See also
 the probabilities to make the distinctions among them more visible.
 """)
 
-    op.add_option("-s", "--strategy", "--s", type="choice", action="append", 
-        default=null,
-        choices=[
-          "baseline", "none",
-          "full-kl-divergence", "full-kldiv", "full-kl",
-          "partial-kl-divergence", "partial-kldiv", "partial-kl",
-          "symmetric-full-kl-divergence", "sym-kldiv", "sym-kl",
-          "symmetric-partial-kl-divergence", "sym-partial-kldiv",
-            "sym-partial-kl",
-          "cosine-similarity", "cossim",
-          "partial-cosine-similarity", "partial-cossim",
-          "smoothed-cosine-similarity", "smoothed-cossim",
-          "smoothed-partial-cosine-similarity", "smoothed-partial-cossim",
-          "average-cell-probability", "avg-cell-prob", "acp",
-          "naive-bayes-with-baseline", "nb-base",
-          "naive-bayes-no-baseline", "nb-nobase"
-          ],
-        help="""Strategy/strategies to use for geotagging.
+    op.multiOption[String]("s", "strategy",
+//      choices=Seq(
+//        "baseline", "none",
+//        "full-kl-divergence",
+//        "partial-kl-divergence",
+//        "symmetric-full-kl-divergence",
+//        "symmetric-partial-kl-divergence",
+//        "cosine-similarity",
+//        "partial-cosine-similarity",
+//        "smoothed-cosine-similarity",
+//        "smoothed-partial-cosine-similarity",
+//        "average-cell-probability",
+//        "naive-bayes-with-baseline",
+//        "naive-bayes-no-baseline",
+//        ),
+      canonchoices=Map(
+        "baseline"->null, "none"->null,
+        "full-kl-divergence"->
+          Seq("full-kldiv", "full-kl"),
+        "partial-kl-divergence"->
+          Seq("partial-kldiv", "partial-kl", "part-kl"),
+        "symmetric-full-kl-divergence"->
+          Seq("symmetric-full-kldiv", "symmetric-full-kl", "sym-full-kl"),
+        "symmetric-partial-kl-divergence"->
+          Seq("symmetric-partial-kldiv", "symmetric-partial-kl", "sym-part-kl"),
+        "cosine-similarity"->
+          Seq("cossim"),
+        "partial-cosine-similarity"->
+          Seq("partial-cossim", "part-cossim"),
+        "smoothed-cosine-similarity"->
+          Seq("partial-cossim", "part-cossim"),
+        "smoothed-partial-cosine-similarity"->
+          Seq("smoothed-partial-cossim", "smoothed-part-cossim"),
+        "average-cell-probability"->
+          Seq("avg-cell-prob", "acp"),
+        "naive-bayes-with-baseline"->
+          Seq("nb-base"),
+        "naive-bayes-no-baseline"->
+          Seq("nb-nobase")
+        ),
+        "cossim"->"cosine-similarity",
+        "partial-cossim"->"partial-cosine-similarity",
+        "smoothed-cossim"->"smoothed-cosine-similarity",
+        "smoothed-partial-cossim"->"smoothed-partial-cosine-similarity",
+        //"regdist"->"average-cell-probability",
+        //"per-word-region-distribution"->"average-cell-probability",
+        "avg-cell-prob"->"average-cell-probability",
+        "acp"->"average-cell-probability",
+        "nb-base"->"naive-bayes-with-baseline",
+        "nb-nobase"->"naive-bayes-no-baseline"),
+      help="""Strategy/strategies to use for geotagging.
 'baseline' means just use the baseline strategy (see --baseline-strategy).
 
 'none' means don't do any geotagging.  Useful for testing the parts that
@@ -3400,33 +3449,18 @@ the article.  Default is 'partial-kl-divergence'.
 
 NOTE: Multiple --strategy options can be given, and each strategy will
 be tried, one after the other.""")
-    canon_options["strategy"] = {
-        "full-kldiv":"full-kl-divergence",
-        "full-kl":"full-kl-divergence",
-        "partial-kldiv":"partial-kl-divergence",
-        "partial-kl":"partial-kl-divergence",
-        "sym-full-kldiv":"symmetric-full-kl-divergence",
-        "sym-full-kl":"symmetric-full-kl-divergence",
-        "sym-partial-kldiv":"symmetric-partial-kl-divergence",
-        "sym-partial-kl":"symmetric-partial-kl-divergence",
-        "cossim":"cosine-similarity",
-        "partial-cossim":"partial-cosine-similarity",
-        //"regdist":"average-cell-probability",
-        //"per-word-region-distribution":"average-cell-probability",
-        "avg-cell-prob":"average-cell-probability",
-        "acp":"average-cell-probability",
-        "nb-base":"naive-bayes-with-baseline",
-        "nb-nobase":"naive-bayes-no-baseline"}
 
-    op.add_option("--baseline-strategy", "--bs", type="choice", action="append",
-                  default=null,
-                  choices=["internal-link", "link",
-                           "random",
-                           "num-articles", "num-arts", "numarts",
-                           "link-most-common-toponym",
-                           "region-distribution-most-common-toponym",
-                           "regdist-most-common-toponym"],
-                  help="""Strategy to use to compute the baseline.
+    op.multiOption[String]("baseline-strategy", "bs",
+      choices=Seq("internal-link", "random",
+                  "num-articles", "link-most-common-toponym",
+                  "region-distribution-most-common-toponym"),
+      canonicalize=Map(
+        "link"->"internal-link",
+        "num-arts"->"num-articles",
+        "numarts"->"num-articles",
+        "region-distribution-most-common-toponym"->
+           "regdist-most-common-toponym"),
+      help="""Strategy to use to compute the baseline.
 
 'internal-link' (or 'link') means use number of internal links pointing to the
 article or region.
@@ -3449,22 +3483,16 @@ NOTE: Multiple --baseline-strategy options can be given, and each strategy will
 be tried, one after the other.  Currently, however, the *-most-common-toponym
 strategies cannot be mixed with other baseline strategies, or with non-baseline
 strategies, since they require that --preserve-case-words be set internally.""")
-    canon_options["baseline_strategy"] = (
-        {"link":"internal-link",
-         "num-arts":"num-articles",
-         "numarts":"num-articles",
-         "region-distribution-most-common-toponym":
-           "regdist-most-common-toponym"}
-        )
 
-    op.add_option("--baseline-weight", "--bw", type="float", metavar="WEIGHT",
-                  default=0.5,
-                  help="""Relative weight to assign to the baseline (prior
+    op.option[Double]("baseline-weight", "bw",
+      metavar="WEIGHT",
+      default=0.5,
+      help="""Relative weight to assign to the baseline (prior
 probability) when doing weighted Naive Bayes.  Default %default.""")
-    op.add_option("--naive-bayes-weighting", "--nbw", type="choice",
-                  default="equal",
-                  choices=["equal", "equal-words", "distance-weighted"],
-                  help="""Strategy for weighting the different probabilities
+    op.option[String]("naive-bayes-weighting", "nbw",
+      default="equal",
+      choices=Seq("equal", "equal-words", "distance-weighted"),
+      help="""Strategy for weighting the different probabilities
 that go into Naive Bayes.  If 'equal', do pure Naive Bayes, weighting the
 prior probability (baseline) and all word probabilities the same.  If
 'equal-words', weight all the words the same but collectively weight all words
@@ -3472,23 +3500,24 @@ against the baseline, giving the baseline weight according to --baseline-weight
 and assigning the remainder to the words.  If 'distance-weighted', similar to
 'equal-words' but don't weight each word the same as each other word; instead,
 weight the words according to distance from the toponym.""")
-    op.add_option("--width-of-stat-region", type="int", default=1,
-                  help="""Width of the region used to compute a statistical
+    op.option[Int]("width-of-stat-region", default=1,
+      help="""Width of the region used to compute a statistical
 distribution for geotagging purposes, in terms of number of tiling regions.
 Default %default.""")
-    op.add_option("--degrees-per-region", "--dpr", type="float", default=null,
-                  help="""Size (in degrees) of the tiling regions that cover
+    op.option[Double]("degrees-per-region", "dpr",
+      help="""Size (in degrees) of the tiling regions that cover
 the earth.  Some number of tiling regions are put together to form the region
 used to construct a statistical distribution.  No default; the default of
 '--miles-per-region' is used instead.""")
-    op.add_option("--miles-per-region", "--mpr", type="float", default=100.0,
-                  help="""Size (in miles) of the tiling regions that cover
+    op.option[Double]("miles-per-region", "mpr",
+      default=100.0,
+      help="""Size (in miles) of the tiling regions that cover
 the earth.  Some number of tiling regions are put together to form the region
 used to construct a statistical distribution.  Default %default.""")
-    op.add_option("--context-type", "--ct", type="choice",
-                  default="region-dist-article-links",
-                  choices=["article", "region", "region-dist-article-links"],
-                  help="""Type of context used when doing disambiguation.
+    op.option[String]("context-type", "ct",
+      default="region-dist-article-links",
+      choices=Seq("article", "region", "region-dist-article-links"),
+      help="""Type of context used when doing disambiguation.
 There are two cases where this choice applies: When computing a word
 distribution, and when counting the number of incoming internal links.
 'article' means use the article itself for both.  'region' means use the
@@ -3498,65 +3527,61 @@ incoming internal links.  Note that this only applies when
 --mode='geotag-toponyms'; in --mode='geotag-documents', only regions are
 considered.  Default '%default'.""")
 
-    op.add_option("-k", "--kml-words", "--kw",
-                  help="""Words to generate KML distributions for, when
+    op.option[String]("k", "kml-words", "kw",
+      help="""Words to generate KML distributions for, when
 --mode='generate-kml'.  Each word should be separated by a comma.  A separate
 file is generated for each word, using '--kml-prefix' and adding '.kml'.""")
-    op.add_option("--kml-prefix", "--kp",
-                  default="kml-dist.",
-                  help="""Prefix to use for KML files outputted.
+    op.option[String]("kml-prefix", "kp",
+      default="kml-dist.",
+      help="""Prefix to use for KML files outputted.
 Default '%default',""")
-    op.add_option("--kml-transform", "--kt", "--kx", type="choice",
-                  default="none",
-                  choices=["none", "log", "logsquared"],
-                  help="""Type of transformation to apply to the probabilities
+    op.option[String]("kml-transform", "kt", "kx",
+      default="none",
+      choices=Seq("none", "log", "logsquared"),
+      help="""Type of transformation to apply to the probabilities
 when generating KML, possibly to try and make the low values more visible.
 Possibilities are 'none' (no transformation), 'log' (take the log), and
 'logsquared' (negative of squared log).  Default '%default'.""")
 
-    op.add_option("--num-training-docs", "--ntrain", type="int", default=0,
-                  help="""Maximum number of training documents to use.
+    op.option[Int]("num-training-docs", "ntrain", default=0,
+      help="""Maximum number of training documents to use.
 0 means no limit.  Default %default.""")
-    op.add_option("--num-test-docs", "--ntest", type="int", default=0,
-                  help="""Maximum number of test documents to process.
+    op.option[Int]("num-test-docs", "ntest", default=0,
+      help="""Maximum number of test documents to process.
 0 means no limit.  Default %default.""")
-    op.add_option("--skip-initial-test-docs", "--skip-initial", type="int", default=0,
-                  help="""Skip this many test docs at beginning.  Default 0.""")
-    op.add_option("--every-nth-test-doc", "--every-nth", type="int", default=1,
-                  help="""Only process every Nth test doc.  Default 1, i.e. process all.""")
-//    op.add_option("--skip-every-n-test-docs", "--skip-n", type="int", default=0,
-//                  help="""Skip this many after each one processed.  Default 0.""")
-    op.add_option("--no-individual-results", "--no-results",
-                  action="store_true", default=false,
-                  help="""Don't show individual results for each test document.""")
-    op.add_option("--lru-cache-size", "--lru",
-                  type="int", default=400,
-                  help="""Number of entries in the LRU cache.""")
-
-    canon_options
+    op.option[Int]("skip-initial-test-docs", "skip-initial", default=0,
+      help="""Skip this many test docs at beginning.  Default 0.""")
+    op.option[Int]("every-nth-test-doc", "every-nth", default=1,
+      help="""Only process every Nth test doc.  Default 1, i.e. process all.""")
+//    op.option[Int]("skip-every-n-test-docs", "skip-n", default=0,
+//      help="""Skip this many after each one processed.  Default 0.""")
+    op.flag("no-individual-results", "no-results",
+      help="""Don't show individual results for each test document.""")
+    op.option[Int]("lru-cache-size", "lru", default=400,
+      help="""Number of entries in the LRU cache.""")
   }
 
-  def handle_arguments(self, opts:Map[String,String], op:OptionParser,
+  def handle_arguments(opts:Map[String,String], op:OptionParser,
                        args:List[String]) = {
     global Opts
     val Opts = opts
     global debug
     if (opts.debug) {
-      val params = re.split("""[:;\s]+""", opts.debug)
+      val params = """[:;\s]+""".r.split(opts.debug)
       // Allow params with values, and allow lists of values to be given
       // by repeating the param
       for (f <- params) {
-        if ('=' in f) {
-          (param, value) = re.split("=", f, 1)
+        if (f contains '=') {
+          val (param, value) = f.split("=", 2)
           if (list_debug_params contains param) {
-            val values = re.split("[,]", value)
-            debug[param] += values
+            val values = "[,]".split(value)
+            debug(param) += values
           }
           else
-            debug[param] = value
+            debug(param) = value
         }
         else
-          debug[f] = true
+          debug(f) = true
       }
       WordDist.set_debug(debug)
     }
@@ -3637,7 +3662,7 @@ Possibilities are 'none' (no transformation), 'log' (take the log), and
     }
 
     if (opts.mode == "geotag-toponyms")
-      self.need("gazetteer_file")
+      need("gazetteer_file")
 
     if (opts.eval_format == "raw-text") {
       // FIXME!!!!
@@ -3667,19 +3692,19 @@ Possibilities are 'none' (no transformation), 'log' (take the log), and
     if (opts.mode == "geotag-documents" && opts.eval_format == "wiki")
       () // No need for evaluation file, uses the counts file
     else if (opts.mode.startswith("geotag"))
-      self.need("eval_file", "evaluation file(s)")
+      need("eval_file", "evaluation file(s)")
 
     if (opts.mode == "generate-kml")
-      self.need("kml_words")
+      need("kml_words")
     else if (opts.kml_words)
       op.error("--kml-words only compatible with --mode=generate-kml")
 
-    self.need("article_data_file")
+    need("article_data_file")
 
     params
   }
 
-  def implement_main(self, opts:Map[String,String], params:Map[String,?],
+  def implement_main(opts:Map[String,String], params:Map[String,?],
                      args:List[String]) {
     if (params.need_to_read_stopwords)
       read_stopwords(opts.stopwords_file)

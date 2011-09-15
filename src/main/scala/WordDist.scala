@@ -360,12 +360,12 @@ other implementations.
     // But there may not be any.  max() will raise an error if given an
     // empty sequence, so insert a bogus value into the sequence with a
     // negative count.
-    maxword, maxcount = \
-      max(chain([(None, -1)],
-                ((word, count) for word, count in worddist.counts.iteritems()
-                 if pred(word))),
-          key = lambda x:x[1])
-    return maxword
+    val (maxword, maxcount) =
+      ((Seq((null, -1)) ++
+        (for ((word, count) <- worddist.counts if pred(word))
+           yield (word, count)))
+       maxBy (_._2 < _._2))
+    maxword
   }
 }
 
