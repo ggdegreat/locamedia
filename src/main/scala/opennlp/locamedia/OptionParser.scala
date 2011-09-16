@@ -187,17 +187,24 @@ class OptionParser(prog:String) {
   }
 }
 
-object TestOpts extends Application {
-  override def main(args:Array[String]) {
-    val op = new OptionParser("test")
-    object Opts {
-      import locamedia._
-      def foo = op.option[Int]("foo", default=5)
-      def bar = op.option[String]("bar", default="fuck")
-    }
-    op.parse(Opts, List("--foo", "6"))
-    println("foo: %s" format Opts.foo)
-    println("bar: %s" format Opts.bar)
+object TestOpts extends App {
+  val op = new OptionParser("test")
+  object Opts {
+    import locamedia._
+    def foo = op.option[Int]("foo", default=5)
+    def bar = op.option[String]("bar", default="fuck")
+    def baz = op.multiOption[String]("baz")
+    def bat = op.multiOption[Int]("bat")
+    def blop = op.option[String]("blop", choices=Seq("mene", "tekel", "upharsin"), canonicalize=Map()
+    def blop2 = op.multiOption[String]("blop2", choices=Seq("mene", "tekel", "upharsin"))
   }
+  // op.parse(Opts, List("--foo", "7"))
+  op.parse(Opts, args)
+  println("foo: %s" format Opts.foo)
+  println("bar: %s" format Opts.bar)
+  println("baz: %s" format Opts.baz)
+  println("bat: %s" format Opts.bat)
+  println("blop: %s" format Opts.blop)
+  println("blop2: %s" format Opts.blop2)
 }
 

@@ -1560,11 +1560,11 @@ class Eval(incorrect_reasons:Map[String,String]) {
   var incorrect_instances = 0
   val other_stats = intmap()
   // Map from reason ID's to counts
-  var results = Map[String,Int]()
-  for ((attrname, engname) <- incorrect_reasons)
-    results(attrname) = 0
+  var results = intmap()
   
   def record_result(correct:Boolean, reason:String=null) {
+    if (reason != null)
+      assert(incorrect_reasons.keys contains reason)
     total_instances += 1
     if (correct)
       correct_instances += 1
@@ -1600,8 +1600,7 @@ class Eval(incorrect_reasons:Map[String,String]) {
     output_fraction("Percent incorrect", incorrect_instances,
                          total_instances)
     for ((reason, descr) <- incorrect_reasons) {
-      output_fraction("  %s" format descr, getattr(this, reason),
-                           total_instances)
+      output_fraction("  %s" format descr, results(reason), total_instances)
     }
   }
 
@@ -3275,36 +3274,43 @@ object WorldGazetteer {
 //                                  Main code                              //
 /////////////////////////////////////////////////////////////////////////////
 
-class WikiDisambigProgram extends NLPProgram {
-
-  def populate_options(op:OptionParser) = {
+object Opts {
+  op = new OptionParser(...)
     //////////// Input files
+  def stopwords_file =
     op.option[String]("stopwords-file",
       metavar="FILE",
       help="""File containing list of stopwords.""")
+  def article_data_file =
     op.multiOption[String]("a", "article-data-file",
       metavar="FILE",
       help="""File containing info about Wikipedia articles.""")
+  def gazetteer_file =
     op.option[String]("gf", "gazetteer-file",
       help="""File containing gazetteer information to match.""")
+  def gazetteer_type =
     op.option[String]("gt", "gazetteer-type",
       metavar="FILE",
       default="world", choices=Seq("world", "db"),
       help="""Type of gazetteer file specified using --gazetteer;
 default '%default'.""")
+  def counts_file =
     op.multiOption[String]("counts-file", "cf",
       metavar="FILE",
       help="""File containing output from a prior run of
 --output-counts, listing for each article the words in the article and
 associated counts.""")
+  def eval_file =
     op.option[String]("e", "eval-file",
       metavar="FILE",
       """File or directory containing files to evaluate on.
 Each file is read in and then disambiguation is performed.""")
+  def eval_format =
     op.option[String]("f", "eval-format",
       default="wiki",
       choices=Seq("tr-conll", "wiki", "raw-text", "pcl-travel"),
       help="""Format of evaluation file(s).  Default '%default'.""")
+  def eval_set =
     op.option[String]("eval-set", "es",
       default="dev",
       choices=Seq("dev", "test"),
@@ -3314,27 +3320,33 @@ and --mode=geotag-documents ('dev' or 'devel' for the development set,
 'test' for the test set).  Default '%default'.""")
 
     /////////// Misc options for handling distributions
+  def preserve_case_words =
     op.flag("preserve-case-words", "pcw",
       help="""Don't fold the case of words used to compute and
 match against article distributions.  Note that this does not apply to
 toponyms; currently, toponyms are always matched case-insensitively.""")
+  def include_stopwords_in_article_dists =
     op.flag("include-stopwords-in-article-dists",
       help="""Include stopwords when computing word
 distributions.""")
+  def naive_bayes_context_len =
     op.option[Int]("naive-bayes-context-len", "nbcl",
       default=10,
       help="""Number of words on either side of a toponym to use
 in Naive Bayes matching.  Default %default.""")
+  def minimum_word_count =
     op.option[Int]("minimum-word-count", "mwc",
       default=1,
       help="""Minimum count of words to consider in word
 distributions.  Words whose count is less than this value are ignored.""")
 
     /////////// Misc options for controlling matching
+  def max_dist_for_close_match =
     op.option[Double]("max-dist-for-close-match", "mdcm",
       default=80,
       help="""Maximum number of miles allowed when looking for a
 close match.  Default %default.""")
+  def max_dist_for_outliers =
     op.option[Double]("max-dist-for-outliers", "mdo",
       default=200,
       help="""Maximum number of miles allowed between a point and
@@ -3342,6 +3354,7 @@ any others in a division.  Points farther away than this are ignored as
 "outliers" (possible errors, etc.).  Default %default.""")
 
     /////////// Basic options for determining operating mode and strategy
+  def mode =
     op.option[String]("m", "mode",
       default="geotag-documents",
       choices=Seq("geotag-toponyms",
@@ -3368,6 +3381,7 @@ specify the words whose distributions should be outputted.  See also
 the probabilities to make the distinctions among them more visible.
 """)
 
+  def strategy =
     op.multiOption[String]("s", "strategy",
 //      choices=Seq(
 //        "baseline", "none",
@@ -3450,6 +3464,7 @@ the article.  Default is 'partial-kl-divergence'.
 NOTE: Multiple --strategy options can be given, and each strategy will
 be tried, one after the other.""")
 
+  def baseline_strategy =
     op.multiOption[String]("baseline-strategy", "bs",
       choices=Seq("internal-link", "random",
                   "num-articles", "link-most-common-toponym",
@@ -3484,11 +3499,13 @@ be tried, one after the other.  Currently, however, the *-most-common-toponym
 strategies cannot be mixed with other baseline strategies, or with non-baseline
 strategies, since they require that --preserve-case-words be set internally.""")
 
+  def baseline_weight =
     op.option[Double]("baseline-weight", "bw",
       metavar="WEIGHT",
       default=0.5,
       help="""Relative weight to assign to the baseline (prior
 probability) when doing weighted Naive Bayes.  Default %default.""")
+  def naive_bayes_weighting =
     op.option[String]("naive-bayes-weighting", "nbw",
       default="equal",
       choices=Seq("equal", "equal-words", "distance-weighted"),
@@ -3500,20 +3517,24 @@ against the baseline, giving the baseline weight according to --baseline-weight
 and assigning the remainder to the words.  If 'distance-weighted', similar to
 'equal-words' but don't weight each word the same as each other word; instead,
 weight the words according to distance from the toponym.""")
+  def width_of_stat_region =
     op.option[Int]("width-of-stat-region", default=1,
       help="""Width of the region used to compute a statistical
 distribution for geotagging purposes, in terms of number of tiling regions.
 Default %default.""")
+  def degrees_per_region =
     op.option[Double]("degrees-per-region", "dpr",
       help="""Size (in degrees) of the tiling regions that cover
 the earth.  Some number of tiling regions are put together to form the region
 used to construct a statistical distribution.  No default; the default of
 '--miles-per-region' is used instead.""")
+  def miles_per_region =
     op.option[Double]("miles-per-region", "mpr",
       default=100.0,
       help="""Size (in miles) of the tiling regions that cover
 the earth.  Some number of tiling regions are put together to form the region
 used to construct a statistical distribution.  Default %default.""")
+  def context_type =
     op.option[String]("context-type", "ct",
       default="region-dist-article-links",
       choices=Seq("article", "region", "region-dist-article-links"),
@@ -3527,14 +3548,17 @@ incoming internal links.  Note that this only applies when
 --mode='geotag-toponyms'; in --mode='geotag-documents', only regions are
 considered.  Default '%default'.""")
 
+  def kml_words =
     op.option[String]("k", "kml-words", "kw",
       help="""Words to generate KML distributions for, when
 --mode='generate-kml'.  Each word should be separated by a comma.  A separate
 file is generated for each word, using '--kml-prefix' and adding '.kml'.""")
+  def kml_prefix =
     op.option[String]("kml-prefix", "kp",
       default="kml-dist.",
       help="""Prefix to use for KML files outputted.
 Default '%default',""")
+  def kml_transform =
     op.option[String]("kml-transform", "kt", "kx",
       default="none",
       choices=Seq("none", "log", "logsquared"),
@@ -3543,31 +3567,36 @@ when generating KML, possibly to try and make the low values more visible.
 Possibilities are 'none' (no transformation), 'log' (take the log), and
 'logsquared' (negative of squared log).  Default '%default'.""")
 
+  def num_training_docs =
     op.option[Int]("num-training-docs", "ntrain", default=0,
       help="""Maximum number of training documents to use.
 0 means no limit.  Default %default.""")
+  def num_test_docs =
     op.option[Int]("num-test-docs", "ntest", default=0,
       help="""Maximum number of test documents to process.
 0 means no limit.  Default %default.""")
+  def skip_initial_test_docs =
     op.option[Int]("skip-initial-test-docs", "skip-initial", default=0,
       help="""Skip this many test docs at beginning.  Default 0.""")
+  def every_nth_test_doc =
     op.option[Int]("every-nth-test-doc", "every-nth", default=1,
       help="""Only process every Nth test doc.  Default 1, i.e. process all.""")
+//  def skip_every_n_test_docs =
 //    op.option[Int]("skip-every-n-test-docs", "skip-n", default=0,
 //      help="""Skip this many after each one processed.  Default 0.""")
+  def no_individual_results =
     op.flag("no-individual-results", "no-results",
       help="""Don't show individual results for each test document.""")
+  def lru_cache_size =
     op.option[Int]("lru-cache-size", "lru", default=400,
       help="""Number of entries in the LRU cache.""")
-  }
+}
 
-  def handle_arguments(opts:Map[String,String], op:OptionParser,
-                       args:List[String]) = {
-    global Opts
-    val Opts = opts
+class WikiDisambigProgram extends NLPProgram {
+  def handle_arguments(op:OptionParser, args:List[String]) = {
     global debug
-    if (opts.debug) {
-      val params = """[:;\s]+""".r.split(opts.debug)
+    if (Opts.debug) {
+      val params = """[:;\s]+""".r.split(Opts.debug)
       // Allow params with values, and allow lists of values to be given
       // by repeating the param
       for (f <- params) {
@@ -3594,49 +3623,49 @@ Possibilities are 'none' (no transformation), 'log' (take the log), and
     params.need_to_read_stopwords = false
    
     // Canonicalize options
-    if (!opts.strategy) {
-      if (opts.mode == "geotag-documents")
-        opts.strategy = Seq("partial-kl-divergence")
-      else if (opts.mode == "geotag-toponyms")
-        opts.strategy = Seq("baseline")
+    if (!Opts.strategy) {
+      if (Opts.mode == "geotag-documents")
+        Opts.strategy = Seq("partial-kl-divergence")
+      else if (Opts.mode == "geotag-toponyms")
+        Opts.strategy = Seq("baseline")
       else
-        opts.strategy = Seq[String]()
+        Opts.strategy = Seq[String]()
     }
 
-    if (!opts.baseline_strategy)
-      opts.baseline_strategy = Seq("internal-link")
+    if (!Opts.baseline_strategy)
+      Opts.baseline_strategy = Seq("internal-link")
 
-    if ("baseline" in opts.strategy) {
+    if ("baseline" in Opts.strategy) {
       var need_case = false
       var need_no_case = false
-      for (bstrat <- opts.baseline_strategy) {
+      for (bstrat <- Opts.baseline_strategy) {
         if (bstrat.endswith("most-common-toponym"))
           need_case = true
         else
           need_no_case = true
       }
       if (need_case) {
-        if (opts.strategy.length > 1 || need_no_case) {
+        if (Opts.strategy.length > 1 || need_no_case) {
           // That's because we have to set --preserve-case-words, which we
           // generally don't want set for other strategies and which affects
           // the way we construct the training-document distributions.
           op.error("Can't currently mix *-most-common-toponym baseline strategy with other strategies")
         }
-        opts.preserve_case_words = true
+        Opts.preserve_case_words = true
       }
     }
 
     // FIXME! Can only currently handle World-type gazetteers.
-    if (opts.gazetteer_type != "world")
+    if (Opts.gazetteer_type != "world")
       op.error("Currently can only handle world-type gazetteers")
 
-    if (opts.miles_per_region <= 0)
+    if (Opts.miles_per_region <= 0)
       op.error("Miles per region must be positive")
     global degrees_per_region
-    if (opts.degrees_per_region)
-      var degrees_per_region = opts.degrees_per_region
+    if (Opts.degrees_per_region)
+      var degrees_per_region = Opts.degrees_per_region
     else
-      degrees_per_region = opts.miles_per_region / miles_per_degree
+      degrees_per_region = Opts.miles_per_region / miles_per_degree
     global maximum_latind, minimum_latind, maximum_longind, minimum_longind
     // The actual maximum latitude is exactly 90 (the North Pole).  But if we
     // set degrees per region to be a number that exactly divides 180, and we
@@ -3648,55 +3677,55 @@ Possibilities are 'none' (no transformation), 'log' (take the log), and
     val (minimum_latind, minimum_longind) = coord_to_tiling_region_indices(Coord(minimum_latitude,
                                            minimum_longitude))
 
-    if (opts.width_of_stat_region <= 0)
+    if (Opts.width_of_stat_region <= 0)
       op.error("Width of statistical region must be positive")
 
     //// Start reading in the files and operating on them ////
 
-    if (opts.mode.startswith("geotag")) {
+    if (Opts.mode.startswith("geotag")) {
       params.need_to_read_stopwords = true
-      if ((opts.mode == "geotag-toponyms" && opts.strategy == Seq("baseline")))
+      if ((Opts.mode == "geotag-toponyms" && Opts.strategy == Seq("baseline")))
         ()
-      else if (!opts.counts_file)
+      else if (!Opts.counts_file)
         op.error("Must specify counts file")
     }
 
-    if (opts.mode == "geotag-toponyms")
+    if (Opts.mode == "geotag-toponyms")
       need("gazetteer_file")
 
-    if (opts.eval_format == "raw-text") {
+    if (Opts.eval_format == "raw-text") {
       // FIXME!!!!
       op.error("Raw-text reading not implemented yet")
     }
 
-    if (opts.mode == "geotag-documents") {
-      if (!(Seq("pcl-travel", "wiki") contains opts.eval_format))
+    if (Opts.mode == "geotag-documents") {
+      if (!(Seq("pcl-travel", "wiki") contains Opts.eval_format))
         op.error("For --mode=geotag-documents, eval-format must be 'pcl-travel' or 'wiki'")
     }
-    else if (opts.mode == "geotag-toponyms") {
-      if (opts.baseline_strategy.endswith("most-common-toponym")) {
+    else if (Opts.mode == "geotag-toponyms") {
+      if (Opts.baseline_strategy.endswith("most-common-toponym")) {
         op.error("--baseline-strategy=%s only compatible with --mode=geotag-documents"
-            format opts.baseline_strategy)
+            format Opts.baseline_strategy)
       }
-      for (stratname <- opts.strategy) {
+      for (stratname <- Opts.strategy) {
         if (!(Seq("baseline", "naive-bayes-with-baseline",
                   "naive-bayes-no-baseline") contains stratname)) {
           op.error("Strategy '%s' invalid for --mode=geotag-toponyms" format
                    stratname)
         }
       }
-      if (!(Seq("tr-conll", "wiki") contains opts.eval_format))
+      if (!(Seq("tr-conll", "wiki") contains Opts.eval_format))
         op.error("For --mode=geotag-toponyms, eval-format must be 'tr-conll' or 'wiki'")
     }
 
-    if (opts.mode == "geotag-documents" && opts.eval_format == "wiki")
+    if (Opts.mode == "geotag-documents" && Opts.eval_format == "wiki")
       () // No need for evaluation file, uses the counts file
-    else if (opts.mode.startswith("geotag"))
+    else if (Opts.mode.startswith("geotag"))
       need("eval_file", "evaluation file(s)")
 
-    if (opts.mode == "generate-kml")
+    if (Opts.mode == "generate-kml")
       need("kml_words")
-    else if (opts.kml_words)
+    else if (Opts.kml_words)
       op.error("--kml-words only compatible with --mode=generate-kml")
 
     need("article_data_file")
@@ -3704,15 +3733,14 @@ Possibilities are 'none' (no transformation), 'log' (take the log), and
     params
   }
 
-  def implement_main(opts:Map[String,String], params:Map[String,?],
-                     args:List[String]) {
+  def implement_main(params:Map[String,?], args:List[String]) {
     if (params.need_to_read_stopwords)
-      read_stopwords(opts.stopwords_file)
-    for (fn <- opts.article_data_file)
+      read_stopwords(Opts.stopwords_file)
+    for (fn <- Opts.article_data_file)
       read_article_data(fn)
 
-    //errprint("Processing evaluation file(s) %s for toponym counts...", opts.eval_file)
-    //process_dir_files(opts.eval_file, count_toponyms_in_file)
+    //errprint("Processing evaluation file(s) %s for toponym counts...", Opts.eval_file)
+    //process_dir_files(Opts.eval_file, count_toponyms_in_file)
     //errprint("Number of toponyms seen: %s", len(toponyms_seen_in_eval_files))
     //errprint("Number of toponyms seen more than once: %s", //  len([foo for (foo,count) in toponyms_seen_in_eval_files.iteritems() if
     //       count > 1]))
@@ -3720,17 +3748,17 @@ Possibilities are 'none' (no transformation), 'log' (take the log), and
     //                            outfile=sys.stderr)
 
     // Read in the words-counts file
-    for (fn <- opts.counts_file)
+    for (fn <- Opts.counts_file)
       read_word_counts(fn)
-    if (opts.counts_file)
+    if (Opts.counts_file)
       finish_word_counts()
 
-    if (opts.gazetteer_file)
-      WorldGazetteer.read_world_gazetteer_and_match(opts.gazetteer_file)
+    if (Opts.gazetteer_file)
+      WorldGazetteer.read_world_gazetteer_and_match(Opts.gazetteer_file)
 
-    if (opts.mode == "generate-kml") {
+    if (Opts.mode == "generate-kml") {
       StatRegion.initialize_regions()
-      val words = opts.kml_words.split(',')
+      val words = Opts.kml_words.split(',')
       for (word <- words) {
         val regdist = RegionDist.get_region_dist(word)
         if (!regdist.normalized) {
@@ -3738,7 +3766,7 @@ Possibilities are 'none' (no transformation), 'log' (take the log), and
 Not generating an empty KML file.""", word)
         }
         else
-          regdist.generate_kml_file("%s%s.kml" format (opts.kml_prefix, word))
+          regdist.generate_kml_file("%s%s.kml" format (Opts.kml_prefix, word))
       }
       return
     }
@@ -3748,25 +3776,25 @@ Not generating an empty KML file.""", word)
       val strats = strat_unflat reduce (_ ++ _)
       for ((stratname, strategy) <- strats) {
         val evalobj = geneval(stratname, strategy)
-        errprint("Processing evaluation file/dir %s...", opts.eval_file)
+        errprint("Processing evaluation file/dir %s...", Opts.eval_file)
         val iterfiles =
-          if (opts.eval_file) iter_directory_files(opts.eval_file)
+          if (Opts.eval_file) iter_directory_files(Opts.eval_file)
           else Seq("foo")
         evalobj.evaluate_and_output_results(iterfiles)
       }
     }
 
-    if (opts.mode == "geotag-toponyms") {
+    if (Opts.mode == "geotag-toponyms") {
       val strats = (
-        for (stratname <- opts.strategy) yield {
+        for (stratname <- Opts.strategy) yield {
           // Generate strategy object
           if (stratname == "baseline") {
-            for (basestratname <- opts.baseline_strategy) yield
+            for (basestratname <- Opts.baseline_strategy) yield
               ("baseline " + basestratname,
-                  BaselineGeotagToponymStrategy(opts, basestratname))
+                  BaselineGeotagToponymStrategy(basestratname))
           }
           else {
-            val strategy = NaiveBayesToponymStrategy(opts,
+            val strategy = NaiveBayesToponymStrategy(Opts,
                 use_baseline=(stratname == "naive-bayes-with-baseline"))
             Seq((stratname, strategy))
           }
@@ -3774,23 +3802,23 @@ Not generating an empty KML file.""", word)
       )
       process_strategies(strats)((stratname, strategy) => {
         // Generate reader object
-        if (opts.eval_format == "tr-conll")
-          TRCoNLLGeotagToponymEvaluator(opts, strategy, stratname)
+        if (Opts.eval_format == "tr-conll")
+          TRCoNLLGeotagToponymEvaluator(strategy, stratname)
         else
-          WikipediaGeotagToponymEvaluator(opts, strategy, stratname)
+          WikipediaGeotagToponymEvaluator(strategy, stratname)
       })
-    } else if (opts.mode == "geotag-documents") {
+    } else if (Opts.mode == "geotag-documents") {
       val strats = (
-        for (stratname <- opts.strategy) yield {
+        for (stratname <- Opts.strategy) yield {
           if (stratname == "baseline") {
-            for (basestratname <- opts.baseline_strategy) yield
+            for (basestratname <- Opts.baseline_strategy) yield
               ("baseline " + basestratname,
                   BaselineGeotagDocumentStrategy(basestratname))
           }
           else {
             val strategy =
               if (stratname.startswith("naive-bayes-"))
-                NaiveBayesDocumentStrategy(opts,
+                NaiveBayesDocumentStrategy(
                   use_baseline=(stratname == "naive-bayes-with-baseline"))
               else stratname match {
                 case "average-cell-probability" =>
@@ -3823,10 +3851,10 @@ Not generating an empty KML file.""", word)
       )
       process_strategies(strats)((stratname, strategy) => {
         // Generate reader object
-        if (opts.eval_format == "pcl-travel")
-          PCLTravelGeotagDocumentEvaluator(opts, strategy, stratname)
+        if (Opts.eval_format == "pcl-travel")
+          PCLTravelGeotagDocumentEvaluator(strategy, stratname)
         else
-          WikipediaGeotagDocumentEvaluator(opts, strategy, stratname)
+          WikipediaGeotagDocumentEvaluator(strategy, stratname)
       })
     }
   }

@@ -1,7 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <groupId>opennlp.geomedia</groupId>
-  <artifactId>geomedia</artifactId>
+  <groupId>opennlp.locamedia</groupId>
+  <artifactId>locamedia</artifactId>
   <version>0.01</version>
   <name>${project.artifactId}</name>
   <description>GeoMedia -- geolocation for social media</description>
@@ -48,25 +48,6 @@
       <groupId>org.clapper</groupId>
       <artifactId>argot_2.9.1</artifactId>
       <version>0.3.5</version>
-    </dependency>
-    <!-- Test -->
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.8.1</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.scala-tools.testing</groupId>
-      <artifactId>specs_${scala.version}</artifactId>
-      <version>1.6.5</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.scalatest</groupId>
-      <artifactId>scalatest</artifactId>
-      <version>1.2</version>
-      <scope>test</scope>
     </dependency>
   </dependencies>
 
