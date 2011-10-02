@@ -1,6 +1,8 @@
 package opennlp.locamedia
 
 import collection.mutable
+import collection.mutable.{Builder, MapBuilder}
+import collection.generic.CanBuildFrom
 // from __future__ import with_statement // For chompopen(), uchompopen()
 // from optparse import OptionParser
 // from itertools import *
@@ -39,6 +41,12 @@ object NlpUtil {
     list_debug_params += param
   }
 
+  /**
+    * Return floating-point value, number of seconds since the Epoch
+    **/
+  def curtimesecs() = (new Date()).getTime()/1000.0
+
+  def curtimehuman() = (new Date()) toString
   /*
     A simple object to make regexps a bit less awkward.  Works like this:
 
@@ -187,15 +195,20 @@ object NlpUtil {
 //      for line in iterator:
 //        yield line
 //  
-//  // Open a filename with UTF-8-encoded input and yield lines converted to
-//  // Unicode strings, but with any terminating newline removed (similar to
-//  // "chomp" in Perl).  Basically same as gopen() but with defaults set
-//  // differently.
-//  def uchompopen(filename=None, mode="r", encoding="utf-8", errors="strict",
-//      chomp=true, inplace=0, backup="", bufsize=0):
-//    return gopen(filename, mode=mode, encoding=encoding, errors=errors,
-//        chomp=chomp, inplace=inplace, backup=backup, bufsize=bufsize)
-//  
+  // Open a filename with UTF-8-encoded input and yield lines converted to
+  // Unicode strings, but with any terminating newline removed (similar to
+  // "chomp" in Perl).  Basically same as gopen() but with defaults set
+  // differently.
+  def uchompopen(filename:String=null, mode:String="r",
+        encoding:String="utf-8", errors:String="strict", chomp:Boolean=true,
+        inplace:Int=0, backup:String="", bufsize:Int=0) = {
+    // FIXME!! Implement the various optional args, or at least some of them.
+    // At least we probably want the encoding to work properly.
+    Source.fromFile(filename).getLines()
+  }
+  //  return gopen(filename, mode=mode, encoding=encoding, errors=errors,
+  //      chomp=chomp, inplace=inplace, backup=backup, bufsize=bufsize)
+  
 //  // Open a filename and yield lines, but with any terminating newline
 //  // removed (similar to "chomp" in Perl).  Basically same as gopen() but
 //  // with defaults set differently.
@@ -282,8 +295,29 @@ object NlpUtil {
     errprint(format, args: _*)
   }
   
+  def uniprint(text:String, outfile:PrintStream=System.out) {
+    // FIXME!! Print to the given outfile.
+    println(text)
+  }
+  def uniout(text:String, outfile:PrintStream=System.out) {
+    // FIXME!! Print to the given outfile.
+    print(text)
+  }
+  
   def errprint(format:String, args:Any*) {
-    println(format format (args: _*))
+    // If no arguments, assume that we've been passed a raw string to print,
+    // so print it directly rather than passing it to 'format', which might
+    // munge % signs
+    if (args.length == 0)
+      println(format)
+    else
+      println(format format (args: _*))
+  }
+  def errout(format:String, args:Any*) {
+    if (args.length == 0)
+      print(format)
+    else
+      print(format format (args: _*))
   }
   
   /**
@@ -302,97 +336,108 @@ object NlpUtil {
     }
   }
   
-//  /**
-//   Pluralize an English word, using a basic but effective algorithm.
-//   */
-//  def pluralize(word):
-//    if word[-1] >= 'A' and word[-1] <= 'Z': upper = true
-//    else: upper = false
-//    lowerword = word.lower()
-//    if re.match(r".*[b-df-hj-np-tv-z]y$", lowerword):
-//      if upper: return word[:-1] + "IES"
-//      else: return word[:-1] + "ies"
-//    elif re.match(r".*([cs]h|[sx])$", lowerword):
-//      if upper: return word + "ES"
-//      else: return word + "es"
-//    else:
-//      if upper: return word + "S"
-//      else: return word + "s"
-//  
-//  /**
-//   Capitalize the first letter of string, leaving the remainder alone.
-//   */
-//  def capfirst(st):
-//    if not st: return st
-//    return st[0].capitalize() + st[1:]
-//  
-//  // From: http://stackoverflow.com/questions/1823058/how-to-print-number-with-commas-as-thousands-separators-in-python-2-x
-//  def int_with_commas(x):
-//    if type(x) not in [type(0), type(0L)]:
-//      raise TypeError("Parameter must be an integer.")
-//    if x < 0:
-//      return "-" + int_with_commas(-x)
-//    result = ""
-//    while x >= 1000:
-//      x, r = divmod(x, 1000)
-//      result = ",%03d%s" % (r, result)
-//    return "%d%s" % (x, result)
-//  
-//  // My own version
-//  def float_with_commas(x):
-//    intpart = int(math.floor(x))
-//    fracpart = x - intpart
-//    return int_with_commas(intpart) + ("%.2f" % fracpart)[1:]
-//  
-//  def median(list):
-//    "Return the median value of a sorted list."
-//    l = len(list)
-//    if l % 2 == 1:
-//      return list[l // 2]
-//    else:
-//      l = l // 2
-//      return 0.5*(list[l-1] + list[l])
-//  
-//  def mean(list):
-//    "Return the mean of a list."
-//    return sum(list) / float(len(list))
-//  
-//  def split_text_into_words(text, ignore_punc=false, include_nl=false):
-//    // This regexp splits on whitespace, but also handles the following cases:
-//    // 1. Any of , ; . etc. at the end of a word
-//    // 2. Parens or quotes in words like (foo) or "bar"
-//    // These punctuation characters are returned as separate words, unless
-//    // 'ignore_punc' is given.  Also, if 'include_nl' is given, newlines are
-//    // returned as their own words; otherwise, they are treated like all other
-//    // whitespace (i.e. ignored).
-//    if include_nl:
-//      split_punc_re = r"[ \t]+"
-//    else:
-//      split_punc_re = r"\s+"
-//    // The use of izip and cycle will pair true with return values that come
-//    // from the grouping in the split re, and false with regular words.
-//    for (ispunc, word) in izip(cycle([false, true]),
-//                    re.split("""([,;."):]*\s+[("]*)""", text)):
-//      if not word: continue
-//      if ispunc:
-//        // Divide the punctuation up 
-//        for punc in word:
-//          if punc == '\n':
-//            if include_nl: yield punc
-//          elif punc in " \t\r\f\v": continue
-//          elif not ignore_punc: yield punc
-//      else:
-//        yield word
-//  
-//  def fromto(fro, to, step=1):
-//    if fro <= to:
-//      step = abs(step)
-//      to += 1
-//    else:
-//      step = -abs(step)
-//      to -= 1
-//    return xrange(fro, to, step)
-//
+  /**
+   Pluralize an English word, using a basic but effective algorithm.
+   */
+  def pluralize(word:String) = {
+    val upper = word.last >= 'A' && word.last <= 'Z'
+    val lowerword = word.toLower()
+    if (re.match(""".*[b-df-hj-np-tv-z]y$""", lowerword)) {
+      if upper: return word[:-1] + "IES"
+      else: return word[:-1] + "ies"
+    }
+    else if (re.match(""".*([cs]h|[sx])$""", lowerword)) {
+      if upper: return word + "ES"
+      else: return word + "es"
+    }
+    else {
+      if upper: return word + "S"
+      else: return word + "s"
+    }
+  }
+  
+  /**
+   Capitalize the first letter of string, leaving the remainder alone.
+   */
+  def capfirst(st:String) = {
+    if !st: return st
+    return st[0].capitalize() + st[1:]
+  }
+  
+  // From: http://stackoverflow.com/questions/1823058/how-to-print-number-with-commas-as-thousands-separators-in-python-2-x
+  def int_with_commas(x:Int) = {
+    if (x < 0)
+      return "-" + int_with_commas(-x)
+    var result = ""
+    while (x >= 1000) {
+      x, r = divmod(x, 1000)
+      result = ",%03d%s" format (r, result)
+    }
+    return "%d%s" format (x, result)
+  }
+  
+  // My own version
+  def float_with_commas(x:Double) = {
+    val intpart = int(math.floor(x))
+    val fracpart = x - intpart
+    return int_with_commas(intpart) + ("%.2f" format fracpart)[1:]
+  }
+  
+  def median(list:Seq[Double]) = {
+    "Return the median value of a sorted list."
+    var l = list.length
+    if (l % 2 == 1)
+      return list[l / 2]
+    else {
+      l = l / 2
+      return 0.5*(list[l-1] + list[l])
+    }
+  }
+  
+  def mean(list:Seq[Double]) {
+    "Return the mean of a list."
+    return sum(list) / float(list.length)
+  }
+  
+  // A function to make up for a missing feature in Scala.  Split a text
+  // into segments but also return the delimiters.  Regex matches the
+  // delimiters.  Return a list of tuples (TEXT, DELIM).  The last tuple
+  // with have an empty delim.
+  def re_split_with_delimiter(regex:util.matching.Regex, text:String) = {
+    val splits = regex.split(text)
+    val delim_intervals =
+      for (m <- regex.findAllIn(text).matchData) yield List(m.start, m.end)
+    val flattened = List(0) ++ (delim_intervals reduce (_ ++ _)) ++
+      List(text.length, text.length)
+    val interval_texts = flattened.iterator.sliding(2) map (text.slice(_,_))
+    interval_texts grouped 2
+  }
+
+  def split_text_into_words(text:String, ignore_punc:Boolean=false,
+    include_nl:Boolean=false) = {
+    // This regexp splits on whitespace, but also handles the following cases:
+    // 1. Any of , ; . etc. at the end of a word
+    // 2. Parens or quotes in words like (foo) or "bar"
+    // These punctuation characters are returned as separate words, unless
+    // 'ignore_punc' is given.  Also, if 'include_nl' is given, newlines are
+    // returned as their own words; otherwise, they are treated like all other
+    // whitespace (i.e. ignored).
+    (for ((word, punc) <-
+         re_split_with_delimiter("""([,;."):]*\s+[("]*)""".r, text)) yield
+       List(word) ++ (
+         for (p <- punc; !(" \t\r\f\v" contains p)) yield (
+           if (p == '\n') (if (include_nl) p else "")
+           else (if (!ignore_punc) p else "")
+         )
+       )
+    ) reduce (_ ++ _) filter (_ != "")
+  }
+ 
+  def fromto(from:Int, to_:Int) = {
+    if (from <= to) (from to to_)
+    else (to_ to from)
+  }
+
   //////////////////////////////////////////////////////////////////////////////
   //                             Default dictionaries                         //
   //////////////////////////////////////////////////////////////////////////////
@@ -568,236 +613,205 @@ object NlpUtil {
 //      for (key, value) in izip(keys, values):
 //        yield (key, value)
 //
-//  //////////////////////////////////////////////////////////////////////////////
-//  //                                Table Output                              //
-//  //////////////////////////////////////////////////////////////////////////////
-//
-//  def key_sorted_items(d):
-//    return sorted(d.iteritems(), key=lambda x:x[0])
+  //////////////////////////////////////////////////////////////////////////////
+  //                                Table Output                              //
+  //////////////////////////////////////////////////////////////////////////////
+
+//  def key_sorted_items(d) {
+//    return sorted(d.iteritems(), key=x => x[0])
+//  }
 //  
-//  def value_sorted_items(d):
-//    return sorted(d.iteritems(), key=lambda x:x[1])
+//  def value_sorted_items(d) {
+//    return sorted(d.iteritems(), key=x => x[1])
+//  }
 //  
-//  def reverse_key_sorted_items(d):
-//    return sorted(d.iteritems(), key=lambda x:x[0], reverse=true)
+//  def reverse_key_sorted_items(d) {
+//    return sorted(d.iteritems(), key=x => x[0], reverse=true)
+//  }
 //  
-//  def reverse_value_sorted_items(d):
-//    return sorted(d.iteritems(), key=lambda x:x[1], reverse=true)
+//  def reverse_value_sorted_items(d) {
+//    return sorted(d.iteritems(), key=x => x[1], reverse=true)
+//  }
 //  
-//  // Given a list of tuples, where the second element of the tuple is a number and
-//  // the first a key, output the list, sorted on the numbers from bigger to
-//  // smaller.  Within a given number, sort the items alphabetically, unless
-//  // keep_secondary_order is true, in which case the original order of items is
-//  // left.  If 'outfile' is specified, send output to this stream instead of
-//  // stdout.  If 'indent' is specified, indent all rows by this string (usually
-//  // some number of spaces).  If 'maxrows' is specified, output at most this many
-//  // rows.
-//  def output_reverse_sorted_list(items, outfile=sys.stdout, indent="",
-//      keep_secondary_order=false, maxrows=None):
-//    if not keep_secondary_order:
-//      items = sorted(items, key=lambda x:x[0])
-//    items = sorted(items, key=lambda x:x[1], reverse=true)
-//    if maxrows:
-//      items = items[0:maxrows]
-//    for key, value in items:
-//      uniprint("%s%s = %s" % (indent, key, value), outfile=outfile)
-//  
-//  // Given a table with values that are numbers, output the table, sorted
-//  // on the numbers from bigger to smaller.  Within a given number, sort the
-//  // items alphabetically, unless keep_secondary_order is true, in which case
-//  // the original order of items is left.  If 'outfile' is specified, send
-//  // output to this stream instead of stdout.  If 'indent' is specified, indent
-//  // all rows by this string (usually some number of spaces).  If 'maxrows'
-//  // is specified, output at most this many rows.
-//  def output_reverse_sorted_table(table, outfile=sys.stdout, indent="",
-//      keep_secondary_order=false, maxrows=None):
-//    output_reverse_sorted_list(table.iteritems())
-//
-//  //////////////////////////////////////////////////////////////////////////////
-//  //                             Status Messages                              //
-//  //////////////////////////////////////////////////////////////////////////////
-//
-//  // Output status messages periodically, at some multiple of
-//  // 'secs_between_output', measured in real time. 'item_name' is the name
-//  // of the items being processed.  Every time an item is processed, call
-//  // item_processed()
-//  class StatusMessage(object):
-//    def __init__(self, item_name, secs_between_output=15):
-//      self.item_name = item_name
-//      self.plural_item_name = pluralize(item_name)
-//      self.secs_between_output = secs_between_output
-//      self.items_processed = 0
-//      self.first_time = time.time()
-//      self.last_time = self.first_time
-//  
-//    def num_processed(self):
-//      return self.items_processed
-//  
-//    def elapsed_time(self):
-//      return time.time() - self.first_time
-//  
-//    def item_unit(self):
-//      if self.items_processed == 1:
-//        return self.item_name
-//      else:
-//        return self.plural_item_name
-//  
-//    def item_processed(self, maxtime=0):
-//      curtime = time.time()
-//      self.items_processed += 1
-//      total_elapsed_secs = int(curtime - self.first_time)
-//      last_elapsed_secs = int(curtime - self.last_time)
-//      if last_elapsed_secs >= self.secs_between_output:
-//        // Rather than directly recording the time, round it down to the nearest
-//        // multiple of secs_between_output; else we will eventually see something
-//        // like 0, 15, 45, 60, 76, 91, 107, 122, ...
-//        // rather than
-//        // like 0, 15, 45, 60, 76, 90, 106, 120, ...
-//        rounded_elapsed = (int(total_elapsed_secs / self.secs_between_output) *
-//                           self.secs_between_output)
-//        self.last_time = self.first_time + rounded_elapsed
-//        errprint("Elapsed time: %s minutes %s seconds, %s %s processed"
-//                 % (int(total_elapsed_secs / 60), total_elapsed_secs % 60,
-//                    self.items_processed, self.item_unit()))
-//      if maxtime and total_elapsed_secs >= maxtime:
-//        errprint("Maximum time reached, interrupting processing after %s %s"
-//                 % (self.items_processed, self.item_unit()))
-//        return true
-//      return false
-//
-//  //////////////////////////////////////////////////////////////////////////////
-//  //                               File Splitting                             //
-//  //////////////////////////////////////////////////////////////////////////////
-//
-//  // Return the next file to output to, when the instances being output to the
-//  // files are meant to be split according to SPLIT_FRACTIONS.  The absolute
-//  // quantities in SPLIT_FRACTIONS don't matter, only the values relative to
-//  // the other values, i.e. [20, 60, 10] is the same as [4, 12, 2].  This
-//  // function implements an algorithm that is deterministic (same results
-//  // each time it is run), and spreads out the instances as much as possible.
-//  // For example, if all values are equal, it will cycle successively through
-//  // the different split files; if the values are [1, 1.5, 1], the output
-//  // will be [1, 2, 3, 2, 1, 2, 3, ...]; etc.
-//  
-//  def next_split_set(split_fractions):
-//  
-//    num_splits = len(split_fractions)
-//    cumulative_articles = [0]*num_splits
-//  
-//    // Normalize so that the smallest value is 1.
-//  
-//    minval = min(split_fractions)
-//    split_fractions = [float(val)/minval for val in split_fractions]
-//  
-//    // The algorithm used is as follows.  We cycle through the output sets in
-//    // order; each time we return a set, we increment the corresponding
-//    // cumulative count, but before returning a set, we check to see if the
-//    // count has reached the corresponding fraction and skip this set if so.
-//    // If we have run through an entire cycle without returning any sets,
-//    // then for each set we subtract the fraction value from the cumulative
-//    // value.  This way, if the fraction value is not a whole number, then
-//    // any fractional quantity (e.g. 0.6 for a value of 7.6) is left over,
-//    // any will ensure that the total ratios still work out appropriately.
-//  
-//    while true:
-//      this_output = false
-//      for j in xrange(num_splits):
-//        //print "j=%s, this_output=%s" % (j, this_output)
-//        if cumulative_articles[j] < split_fractions[j]:
-//          yield j
-//          cumulative_articles[j] += 1
-//          this_output = true
-//      if not this_output:
-//        for j in xrange(num_splits):
-//          while cumulative_articles[j] >= split_fractions[j]:
-//            cumulative_articles[j] -= split_fractions[j]
-//
-//  //////////////////////////////////////////////////////////////////////////////
-//  //                               NLP Programs                               //
-//  //////////////////////////////////////////////////////////////////////////////
-//
-//  def output_option_parameters(opts, params=None):
-//    errprint("Parameter values:")
-//    for opt in dir(opts):
-//      if not opt.startswith("_") and opt not in \
-//         ["ensure_value", "read_file", "read_module"]:
-//        errprint("%30s: %s" % (opt, getattr(opts, opt)))
-//    if params:
-//      for opt in dir(params):
-//        if not opt.startswith("_"):
-//          errprint("%30s: %s" % (opt, getattr(params, opt)))
-//    errprint("")
-//  
-//  class NLPProgram(object):
-//    def __init__(self):
-//      if self.run_main_on_init():
-//        self.main()
-//  
-//    def implement_main(self, opts, params, args):
-//      pass
-//  
-//    def populate_options(self, op):
-//      pass
-//  
-//    def handle_arguments(self, opts, op, args):
-//      pass
-//  
-//    def argument_usage(self):
-//      return ""
-//  
-//    def get_usage(self):
-//      argusage = self.argument_usage()
-//      if argusage:
-//        argusage = " " + argusage
-//      return "%%prog [options]%s" % argusage
-//  
-//    def run_main_on_init(self):
-//      return true
-//  
-//    def populate_shared_options(self, op):
-//      op.add_option("--max-time-per-stage", "--mts", type="int", default=0,
-//                    help="""Maximum time per stage in seconds.  If 0, no limit.
-//  Used for testing purposes.  Default %default.""")
-//      op.add_option("-d", "--debug", metavar="FLAGS",
-//                    help="Output debug info of the given types (separated by spaces or commas)")
-//  
-//    def need(self, arg, arg_english=None):
-//      if not arg_english:
-//        arg_english=arg.replace("_", " ")
-//      if not getattr(self.opts, arg):
-//        self.op.error("Must specify %s using --%s" %
-//                      (arg_english, arg.replace("_", "-")))
-//  
-//    def main(self):
-//      errprint("Beginning operation at %s" % (time.ctime()))
-//  
-//      self.op = OptionParser(usage="%prog [options]")
-//      self.populate_shared_options(self.op)
-//      self.canon_options = self.populate_options(self.op)
-//  
-//      errprint("Arguments: %s" % " ".join(sys.argv))
-//  
-//      //// Process the command-line options and set other values from them ///
-//      
-//      self.opts, self.args = self.op.parse_args()
-//      // If a mapper for canonicalizing options is given, apply the mappings
-//      if self.canon_options:
-//        for (opt, mapper) in self.canon_options.iteritems():
-//          val = getattr(self.opts, opt)
-//          if isinstance(val, list):
-//            // If a list, then map all members, in case of multi-options
-//            val = [mapper.get(x, x) for x in val]
-//            setattr(self.opts, opt, val)
-//          elif val in mapper:
-//            setattr(self.opts, opt, mapper[val])
-//  
-//      params = self.handle_arguments(self.opts, self.op, self.args)
-//  
-//      output_option_parameters(self.opts, params)
-//  
-//      retval = self.implement_main(self.opts, params, self.args)
-//      errprint("Ending operation at %s" % (time.ctime()))
-//      return retval
+  // Given a list of tuples, where the second element of the tuple is a number and
+  // the first a key, output the list, sorted on the numbers from bigger to
+  // smaller.  Within a given number, sort the items alphabetically, unless
+  // keep_secondary_order is true, in which case the original order of items is
+  // left.  If 'outfile' is specified, send output to this stream instead of
+  // stdout.  If 'indent' is specified, indent all rows by this string (usually
+  // some number of spaces).  If 'maxrows' is specified, output at most this many
+  // rows.
+  def output_reverse_sorted_list[T,U](var items:Seq[(T,U)],
+    outfile:PrintStream=System.out, indent:String="",
+    keep_secondary_order:Boolean=false, maxrows:Int=-1) {
+    if (!keep_secondary_order)
+      items = items sortBy (_._1)
+    items = items sortWith (_._2 > _._2)
+    if (maxrows >= 0)
+      items = items.slice(0, maxrows)
+    for ((key, value) <- items)
+      uniprint("%s%s = %s" format (indent, key, value), outfile=outfile)
+  }
+  
+  // Given a table with values that are numbers, output the table, sorted
+  // on the numbers from bigger to smaller.  Within a given number, sort the
+  // items alphabetically, unless keep_secondary_order is true, in which case
+  // the original order of items is left.  If 'outfile' is specified, send
+  // output to this stream instead of stdout.  If 'indent' is specified, indent
+  // all rows by this string (usually some number of spaces).  If 'maxrows'
+  // is specified, output at most this many rows.
+  def output_reverse_sorted_table[T,U](table:Map[T,U],
+    outfile:PrintStream=System.out, indent:String="",
+    keep_secondary_order:Boolean=false, maxrows:Int=-1) {
+    output_reverse_sorted_list(table toList)
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  //                             Status Messages                              //
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Output status messages periodically, at some multiple of
+  // 'secs_between_output', measured in real time. 'item_name' is the name
+  // of the items being processed.  Every time an item is processed, call
+  // item_processed()
+  class StatusMessage(item_name:String, secs_between_output:Double=15) {
+    import NlpUtil._
+    val self.plural_item_name = pluralize(item_name)
+    var self.items_processed = 0
+    val self.first_time = curtimesecs()
+    var self.last_time = self.first_time
+  
+    def num_processed(self) = items_processed
+  
+    def elapsed_time(self) = curtimesecs() - self.first_time
+  
+    def item_unit(self) = {
+      if (self.items_processed == 1)
+        self.item_name
+      else
+        self.plural_item_name
+    }
+  
+    def item_processed(self, maxtime:Double=0) = {
+      val curtime = curtimesecs()
+      self.items_processed += 1
+      val total_elapsed_secs =
+        (curtime - self.first_time) toInt
+      val last_elapsed_secs = (curtime - self.last_time) toInt
+      if (last_elapsed_secs >= self.secs_between_output) {
+        // Rather than directly recording the time, round it down to the nearest
+        // multiple of secs_between_output; else we will eventually see something
+        // like 0, 15, 45, 60, 76, 91, 107, 122, ...
+        // rather than
+        // like 0, 15, 45, 60, 76, 90, 106, 120, ...
+        val rounded_elapsed = ((total_elapsed_secs / self.secs_between_output).toInt() *
+                           self.secs_between_output)
+        self.last_time = self.first_time + rounded_elapsed
+        errprint("Elapsed time: %s minutes %s seconds, %s %s processed",
+                 (total_elapsed_secs / 60).toInt, total_elapsed_secs % 60,
+                 self.items_processed, self.item_unit())
+      }
+      if (maxtime > 0 && total_elapsed_secs >= maxtime) {
+        errprint("Maximum time reached, interrupting processing after %s %s",
+                 self.items_processed, self.item_unit())
+        true
+      }
+      else false
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  //                               File Splitting                             //
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Return the next file to output to, when the instances being output to the
+  // files are meant to be split according to SPLIT_FRACTIONS.  The absolute
+  // quantities in SPLIT_FRACTIONS don't matter, only the values relative to
+  // the other values, i.e. [20, 60, 10] is the same as [4, 12, 2].  This
+  // function implements an algorithm that is deterministic (same results
+  // each time it is run), and spreads out the instances as much as possible.
+  // For example, if all values are equal, it will cycle successively through
+  // the different split files; if the values are [1, 1.5, 1], the output
+  // will be [1, 2, 3, 2, 1, 2, 3, ...]; etc.
+  
+  def next_split_set(split_fractions:Seq[Double]) {
+  
+    val num_splits = split_fractions.length
+    val cumulative_articles = mutable.Seq.fill(num_splits)(0.0)
+  
+    // Normalize so that the smallest value is 1.
+  
+    val minval = split_fractions min
+    val normalized_split_fractions =
+      (for (val <- split_fractions) yield val.toDouble/minval)
+  
+    // The algorithm used is as follows.  We cycle through the output sets in
+    // order; each time we return a set, we increment the corresponding
+    // cumulative count, but before returning a set, we check to see if the
+    // count has reached the corresponding fraction and skip this set if so.
+    // If we have run through an entire cycle without returning any sets,
+    // then for each set we subtract the fraction value from the cumulative
+    // value.  This way, if the fraction value is not a whole number, then
+    // any fractional quantity (e.g. 0.6 for a value of 7.6) is left over,
+    // any will ensure that the total ratios still work out appropriately.
+ 
+    def fuckme_no_yield() {
+      var yieldme = mutable.List[Int]()
+      for (j <- 0 until num_splits) {
+        //println("j=%s, this_output=%s" format (j, this_output))
+        if (cumulative_articles[j] < normalized_split_fractions[j]) {
+          yieldme += j
+          cumulative_articles[j] += 1
+        }
+      }
+      if (yieldme.length == 0) {
+        for (j <- 0 until num_splits) {
+          while (cumulative_articles[j] >= normalized_split_fractions[j])
+            cumulative_articles[j] -= normalized_split_fractions[j]
+        }
+      }
+      yieldme.toStream ++ fuckme_no_yield()
+    }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  //                               NLP Programs                               //
+  //////////////////////////////////////////////////////////////////////////////
+
+  def output_options(op:OptionParser) {
+    errprint("Parameter values:")
+    for ((name, opt) <- op.get_argmap)
+      errprint("%30s: %s", name, op.value)
+    errprint("")
+  }
+  
+  abstract object NLPProgram extends App {
+    // Things that must be implemented
+    val opts:AnyRef
+    val op:OptionParser
+    def handle_arguments(op:OptionParser, args:List[String])
+    def implement_main(op:OptionParser, args:List[String])
+
+    // Things that may be overridden
+    def output_parameters() {}
+
+    def need(errmsg:String) { op.need(errmsg) }
+
+    def main(self) = {
+      errprint("Beginning operation at %s" format curtimehuman())
+      errprint("Arguments: %s" format (args mkString " "))
+      op.parse(opts, args)
+      handle_arguments(op, args)
+      output_options(op)
+      output_parameters()
+      val retval = implement_main(op, args)
+      errprint("Ending operation at %s" format curtimehuman())
+      retval
+    }
+
+    main()
+    }
+  }
 //
 //  //////////////////////////////////////////////////////////////////////////////
 //  //                               Priority Queues                            //
@@ -842,202 +856,234 @@ object NlpUtil {
 //      self.add_task(priority, task, entry[1])
 //      entry[1] = PriorityQueue.INVALID
 //
-//  //////////////////////////////////////////////////////////////////////////////
-//  //                      Least-recently-used (LRU) Caches                    //
-//  //////////////////////////////////////////////////////////////////////////////
-//
-//  class LRUCache(object, UserDict.DictMixin):
-//    def __init__(self, maxsize=1000):
-//      self.cache = {}
-//      self.pq = PriorityQueue()
-//      self.maxsize = maxsize
-//      self.time = 0
-//  
-//    def __len__(self):
-//      return len(self.cache)
-//  
-//    def __getitem__(self, key):
-//      if key in self.cache:
-//        time = self.time
-//        self.time += 1
-//        self.pq.reprioritize(time, key)
-//      return self.cache[key]
-//  
-//    def __delitem__(self, key):
-//      del self.cache[key]
-//      self.pq.delete_task(key)
-//  
-//    def __setitem__(self, key, value):
-//      time = self.time
-//      self.time += 1
-//      if key in self.cache:
-//        self.pq.reprioritize(time, key)
-//      else:
-//        while len(self.cache) >= self.maxsize:
-//          delkey = self.pq.get_top_priority()
-//          del self.cache[delkey]
-//        self.pq.add_task(time, key)
-//      self.cache[key] = value
-//  
-//    def keys(self):
-//      return self.cache.keys()
-//  
-//    def __contains__(self, key):
-//      return key in self.cache
-//  
-//    def __iter__(self):
-//      return self.cache.iterkeys()
-//  
-//    def iteritems(self):
-//      return self.cache.iteritems()
-//
-//  //////////////////////////////////////////////////////////////////////////////
-//  //                               Resource Usage                             //
-//  //////////////////////////////////////////////////////////////////////////////
-//
-//  beginning_prog_time = time.time()
-//  
-//  def get_program_time_usage():
-//    return time.time() - beginning_prog_time
-//  
-//  def get_program_memory_usage():
-//    if os.path.exists("/proc/self/status"):
-//      return get_program_memory_usage_proc()
-//    else:
-//      try:
-//        return get_program_memory_usage_ps()
-//      except:
-//        return get_program_memory_rusage()
-//  
-//  
-//  def get_program_memory_usage_rusage():
-//    res = resource.getrusage(resource.RUSAGE_SELF)
-//    // FIXME!  This is "maximum resident set size".  There are other more useful
-//    // values, but on the Mac at least they show up as 0 in this structure.
-//    // On Linux, alas, all values show up as 0 or garbage (e.g. negative).
-//    return res.ru_maxrss
-//  
-//  // Get memory usage by running 'ps'; getrusage() doesn't seem to work very
-//  // well.  The following seems to work on both Mac OS X and Linux, at least.
-//  def get_program_memory_usage_ps():
-//    pid = os.getpid()
-//    input = backquote("ps -p %s -o rss" % pid)
-//    lines = re.split(r"\n", input)
-//    for line in lines:
-//      if line.strip() == "RSS": continue
-//      return 1024*int(line.strip())
-//  
-//  // Get memory usage by running 'proc'; this works on Linux and doesn't require
-//  // spawning a subprocess, which can crash when your program is very large.
-//  def get_program_memory_usage_proc():
-//    with open("/proc/self/status") as f:
-//      for line in f:
-//        line = line.strip()
-//        if line.startswith("VmRSS:"):
-//          rss = int(line.split()[1])
-//          return 1024*rss
-//    return 0
-//  
-//  def format_minutes_seconds(secs):
-//    mins = int(secs / 60)
-//    secs = secs % 60
-//    hours = int(mins / 60)
-//    mins = mins % 60
-//    if hours > 0:
-//      hourstr = "%s hour%s " % (hours, "" if hours == 1 else "s")
-//    else:
-//      hourstr = ""
-//    secstr = "%s" % secs if type(secs) is int else "%0.1f" % secs
-//    return hourstr + "%s minute%s %s second%s" % (
-//        mins, "" if mins == 1 else "s",
-//        secstr, "" if secs == 1 else "s")
-//  
-//  def output_resource_usage():
-//    errprint("Total elapsed time since program start: %s" %
-//             format_minutes_seconds(get_program_time_usage()))
-//    errprint("Memory usage: %s bytes" %
-//        int_with_commas(get_program_memory_usage()))
-//
-//  //////////////////////////////////////////////////////////////////////////////
-//  //                             Hash tables by range                         //
-//  //////////////////////////////////////////////////////////////////////////////
-//
-//  // A table that groups all keys in a specific range together.  Instead of
-//  // directly storing the values for a group of keys, we store an object (termed a
-//  // "collector") that the user can use to keep track of the keys and values.
-//  // This way, the user can choose to use a list of values, a set of values, a
-//  // table of keys and values, etc.
-//  
-//  class TableByRange(object):
-//    // Create a new object. 'ranges' is a sorted list of numbers, indicating the
-//    // boundaries of the ranges.  One range includes all keys that are
-//    // numerically below the first number, one range includes all keys that are
-//    // at or above the last number, and there is a range going from each number
-//    // up to, but not including, the next number.  'collector' is used to create
-//    // the collectors used to keep track of keys and values within each range;
-//    // it is either a type or a no-argument factory function.  We only create
-//    // ranges and collectors as needed. 'lowest_bound' is the value of the
-//    // lower bound of the lowest range; default is 0.  This is used only
-//    // it iter_ranges() when returning the lower bound of the lowest range,
-//    // and can be an item of any type, e.g. the number 0, the string "-infinity",
-//    // etc.
-//    def __init__(self, ranges, collector, lowest_bound=0):
-//      self.ranges = ranges
-//      self.collector = collector
-//      self.lowest_bound = lowest_bound
-//      self.items_by_range = {}
-//  
-//    def get_collector(self, key):
-//      lower_range = self.lowest_bound
-//      // upper_range = "infinity"
-//      for i in self.ranges:
-//        if i <= key:
-//          lower_range = i
-//        else:
-//          // upper_range = i
-//          break
-//      if lower_range not in self.items_by_range:
-//        self.items_by_range[lower_range] = self.collector()
-//      return self.items_by_range[lower_range]
-//  
-//    def iter_ranges(self, unseen_between=true, unseen_all=false):
-//      """Return an iterator over ranges in the table.  Each returned value is
-//  a tuple (LOWER, UPPER, COLLECTOR), giving the lower and upper bounds
-//  (inclusive and exclusive, respectively), and the collector item for this
-//  range.  The lower bound of the lowest range comes from the value of
-//  'lowest_bound' specified during creation, and the upper bound of the range
-//  that is higher than any numbers specified during creation in the 'ranges'
-//  list will be the string "infinity" is such a range is returned.
-//  
-//  The optional arguments 'unseen_between' and 'unseen_all' control the
-//  behavior of this iterator with respect to ranges that have never been seen
-//  (i.e. no keys in this range have been passed to 'get_collector').  If
-//  'unseen_all' is true, all such ranges will be returned; else if
-//  'unseen_between' is true, only ranges between the lowest and highest
-//  actually-seen ranges will be returned."""
-//      highest_seen = None
-//      for (lower, upper) in (
-//          izip(chain([self.lowest_bound], self.ranges),
-//               chain(self.ranges, ["infinity"]))):
-//        if lower in self.items_by_range:
-//          highest_seen = upper
-//  
-//      seen_any = false
-//      for (lower, upper) in (
-//          izip(chain([self.lowest_bound], self.ranges),
-//               chain(self.ranges, ["infinity"]))):
-//        collector = self.items_by_range.get(lower, None)
-//        if collector is None:
-//          if not unseen_all:
-//            if not unseen_between: continue
-//            if not seen_any: continue
-//            if upper == "infinity" or upper > highest_seen: continue
-//          collector = self.collector()
-//        else:
-//          seen_any = true
-//        yield (lower, upper, collector)
-//
-// 
+  //////////////////////////////////////////////////////////////////////////////
+  //                      Least-recently-used (LRU) Caches                    //
+  //////////////////////////////////////////////////////////////////////////////
+
+  class LRUCache[T,U](maxsize:Int=1000) extends mutable.Map[T,U]
+    with mutable.MapLike[T,U,LRUCache[T,U]] {
+    val self.cache = mutable.LinkedHashMap[T,U]()
+
+    // def length = return cache.length
+
+    private def reprioritize(key: T) {
+      val value = cache(key)
+      cache -= key
+      cache(key) = value
+    }
+
+    def get(key: T): Option[U] = {
+      if (self.cache contains key) {
+        reprioritize(key)
+        Some(cache(key))
+      }
+      else None
+    }
+ 
+    override def update(key:T, value:U) {
+      if (self.cache contains key)
+        reprioritize(key)
+      else {
+        while (self.cache.length >= maxsize) {
+          val (key2, value) = cache.head()
+          cache -= key2
+        }
+        cache(key) = value
+      }
+    }
+
+    override def remove(key: T): Option[U] = cache.remove(key)
+ 
+    def iterator: Iterator[(T, U)] = cache.iterator
+
+    // All the rest Looks like pure boilerplate!  Why necessary?
+    def += (kv: (T, U)): this.type = {
+      update(kv._1, kv._2); this }
+    def -= (key: T): this.type = { remove(key); this }
+
+    override def empty = new LRUCache[T,U]
+    }
+
+  // This whole object looks like boilerplate!  Why necessary?
+  object LRUCache extends {
+    def empty[T,U] = new LRUCache[T,U]
+
+    def apply[U](kvs: (T,U)*): LRUCache[T,U] = {
+      val m: LRUCache[T,U] = empty
+      for (kv <- kvs) m += kv
+       m
+    }
+
+    def newBuilder[T,U]: Builder[(T,U), LRUCache[T,U]] =
+      new MapBuilder[T, U, LRUCache[T,U]](empty)
+
+    implicit def canBuildFrom[T,U]
+      : CanBuildFrom[LRUCache[_], (T,U), LRUCache[T]] =
+        new CanBuildFrom[LRUCache[_], (T,U), LRUCache[T]] {
+          def apply(from: LRUCache[_]) = newBuilder[T,U]
+          def apply() = newBuilder[T,U]
+        }
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  //                               Resource Usage                             //
+  //////////////////////////////////////////////////////////////////////////////
+
+  val beginning_prog_time = curtimesecs()
+  
+  def get_program_time_usage() = curtimesecs() - beginning_prog_time
+  
+  def get_program_memory_usage() = {
+    if (os.path.exists("/proc/self/status"))
+      get_program_memory_usage_proc()
+    else {
+      try
+        get_program_memory_usage_ps()
+      catch
+        get_program_memory_rusage()
+    }
+  }
+  
+  
+  def get_program_memory_usage_rusage() = {
+    val res = resource.getrusage(resource.RUSAGE_SELF)
+    // FIXME!  This is "maximum resident set size".  There are other more useful
+    // values, but on the Mac at least they show up as 0 in this structure.
+    // On Linux, alas, all values show up as 0 or garbage (e.g. negative).
+    res.ru_maxrss
+  }
+  
+  // Get memory usage by running 'ps'; getrusage() doesn't seem to work very
+  // well.  The following seems to work on both Mac OS X and Linux, at least.
+  def get_program_memory_usage_ps():Int = {
+    val pid = os.getpid()
+    val input = backquote("ps -p %s -o rss" format pid)
+    val lines = re.split("""\n""", input)
+    for (line <- lines if line.trim != "RSS")
+      return 1024*line.trim.toInt
+  }
+  
+  // Get memory usage by running 'proc'; this works on Linux and doesn't require
+  // spawning a subprocess, which can crash when your program is very large.
+  def get_program_memory_usage_proc():Int = {
+    with open("/proc/self/status") as f:
+      for (line <- f) {
+        val line = line.trim
+        if (line.startsWith("VmRSS:")) {
+          val rss = (line.split()(1)).toInt
+          return 1024*rss
+        }
+      }
+    return 0
+  }
+  
+  def format_minutes_seconds(var secs:Double) {
+    var mins = (secs / 60) toInt
+    secs = secs % 60
+    val hours = (mins / 60) toInt
+    mins = mins % 60
+    var hourstr = (
+      if (hours > 0) "%s hour%s " format (hours, if (hours == 1) "" else "s")
+      else "")
+    val secstr = (if (secs.toInt == secs) "%s" else "%0.1f") format secs
+    "%s%s minute%s %s second%s" format (
+        hourstr,
+        mins, if (mins == 1) "" else "s",
+        secstr, if (secs == 1) "" else "s")
+  }
+  
+  def output_resource_usage() {
+    errprint("Total elapsed time since program start: %s",
+             format_minutes_seconds(get_program_time_usage()))
+    errprint("Memory usage: %s bytes",
+        int_with_commas(get_program_memory_usage()))
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+  //                             Hash tables by range                         //
+  //////////////////////////////////////////////////////////////////////////////
+
+  // A table that groups all keys in a specific range together.  Instead of
+  // directly storing the values for a group of keys, we store an object (termed a
+  // "collector") that the user can use to keep track of the keys and values.
+  // This way, the user can choose to use a list of values, a set of values, a
+  // table of keys and values, etc.
+  
+  class TableByRange[Coll](ranges:List[Double], create:()=>Coll, lowest_bound:Double=0.0) {
+    // Create a new object. 'ranges' is a sorted list of numbers, indicating the
+    // boundaries of the ranges.  One range includes all keys that are
+    // numerically below the first number, one range includes all keys that are
+    // at or above the last number, and there is a range going from each number
+    // up to, but not including, the next number.  'collector' is used to create
+    // the collectors used to keep track of keys and values within each range;
+    // it is either a type or a no-argument factory function.  We only create
+    // ranges and collectors as needed. 'lowest_bound' is the value of the
+    // lower bound of the lowest range; default is 0.  This is used only
+    // it iter_ranges() when returning the lower bound of the lowest range,
+    // and can be an item of any type, e.g. the number 0, the string "-infinity",
+    // etc.
+    val self.items_by_range = Map[Double,Coll]()
+  
+    def get_collector(self, key:Double) {
+      var lower_range = self.lowest_bound
+      // upper_range = "infinity"
+      breakable {
+        for (i <- self.ranges) {
+          if (i <= key)
+            lower_range = i
+          else {
+            // upper_range = i
+            break
+          }
+        }
+      }
+      if (!(lower_range contains self.items_by_range))
+        self.items_by_range[lower_range] = create()
+      return self.items_by_range[lower_range]
+    }
+  
+    /**
+     Return an iterator over ranges in the table.  Each returned value is
+     a tuple (LOWER, UPPER, COLLECTOR), giving the lower and upper bounds
+     (inclusive and exclusive, respectively), and the collector item for this
+     range.  The lower bound of the lowest range comes from the value of
+     'lowest_bound' specified during creation, and the upper bound of the range
+     that is higher than any numbers specified during creation in the 'ranges'
+     list will be the string "infinity" is such a range is returned.
+  
+     The optional arguments 'unseen_between' and 'unseen_all' control the
+     behavior of this iterator with respect to ranges that have never been seen
+     (i.e. no keys in this range have been passed to 'get_collector').  If
+     'unseen_all' is true, all such ranges will be returned; else if
+     'unseen_between' is true, only ranges between the lowest and highest
+     actually-seen ranges will be returned.
+     */
+    def iter_ranges(unseen_between:Boolean=true, unseen_all:Boolean=false) {
+      var highest_seen = null
+      def iteration_range =
+        (List(self.lowest_bound) ++ self.ranges) zip
+         (self.ranges ++ List(Double.PositiveInfinity))
+      for ((lower, upper) <- iteration_range) {
+        if (self.items_by_range contains lower)
+          highest_seen = upper
+      }
+  
+      var seen_any = false
+      for {(lower, upper) <- iteration_range
+           val collector = self.items_by_range.get(lower, null)
+           if (collector != null || unseen_all ||
+               (unseen_between && seen_any &&
+                upper != Double.PositiveInfinity && upper <= highest_seen))
+           val col2 = if (collector != null) collector else create()
+          }
+      yield {
+        if (collector != null) seen_any = true
+        (lower, upper, collector)
+      }
+    }
+  }
+
+ 
 //  //////////////////////////////////////////////////////////////////////////////
 //  //                          Depth-, breadth-first search                    //
 //  //////////////////////////////////////////////////////////////////////////////

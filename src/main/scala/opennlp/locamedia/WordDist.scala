@@ -4,6 +4,7 @@ import math._
 import NlpUtil._
 import KLDiv._
 import collection.mutable
+import Disambig.debug
 
 // val use_sorted_list = false
 
@@ -90,18 +91,12 @@ object WordDist {
                       (1 - globally_unseen_word_prob))
     // A very rough estimate, perhaps totally wrong
     num_unseen_word_types = num_types_seen_once max (num_word_types/20)
-    //if debug["tons"]:
-    //  errprint("Num types = %s, num tokens = %s, num_seen_once = %s, globally unseen word prob = %s, total mass = %s" % (num_word_types, num_word_tokens, num_types_seen_once, globally_unseen_word_prob, globally_unseen_word_prob + sum(overall_word_probs.itervalues())))
+    if (debug("tons"))
+      errprint("Num types = %s, num tokens = %s, num_seen_once = %s, globally unseen word prob = %s, total mass = %s", num_word_types, num_word_tokens, num_types_seen_once, globally_unseen_word_prob, globally_unseen_word_prob + (overall_word_probs.values sum))
   }
 }
 
 class WordDist {
-  // Yuck.
-  // @classmethod
-  // def set_debug(cls, val):
-  //   global debug
-  //   debug = val
-
   var finished = false
   val counts = intmap()
   var unseen_mass = 0.5
@@ -314,28 +309,29 @@ other implementations.
 
   def lookup_word(word:String) = {
     assert(finished)
-    //if debug["some"]:
-    //  errprint("Found counts for article %s, num word types = %s"
-    //           % (art, len(wordcounts[0])))
-    //  errprint("Unknown prob = %s, overall_unseen_mass = %s" %
-    //           (unseen_mass, overall_unseen_mass))
+    if (debug("some")) {
+      errprint("Found counts for article %s, num word types = %s",
+               art, wordcounts(0).length)
+      errprint("Unknown prob = %s, overall_unseen_mass = %s",
+               unseen_mass, overall_unseen_mass)
+    }
     val retval = counts.get(word) match {
       case None => {
         WordDist.overall_word_probs.get(word) match {
           case None => {
             val wordprob = (unseen_mass*WordDist.globally_unseen_word_prob
                       / WordDist.num_unseen_word_types)
-            // if debug["lots"]:
-            //   errprint("Word %s, never seen at all, wordprob = %s", word, wordprob)
+            if (debug("lots"))
+              errprint("Word %s, never seen at all, wordprob = %s", word, wordprob)
             wordprob
           }
           case Some(owprob) => {
             val wordprob = unseen_mass * owprob / overall_unseen_mass
             //if wordprob <= 0:
             //  warning("Bad values; unseen_mass = %s, overall_word_probs[word] = %s, overall_unseen_mass = %s" % (unseen_mass, WordDist.overall_word_probs[word], WordDist.overall_unseen_mass))
-            // if debug["lots"]:
-            //   errprint("Word %s, seen but not in article, wordprob = %s",
-            //           word, wordprob)
+            if (debug("lots"))
+              errprint("Word %s, seen but not in article, wordprob = %s",
+                      word, wordprob)
             wordprob
           }
         }
@@ -347,9 +343,9 @@ other implementations.
         //  for (word, count) in self.counts.iteritems():
         //    errprint("%s: %s" % (word, count))
         val wordprob = wordcount.toDouble/total_tokens*(1.0 - unseen_mass)
-        // if debug["lots"]:
-        //   errprint("Word %s, seen in article, wordprob = %s" %
-        //           (word, wordprob))
+        if (debug("lots"))
+          errprint("Word %s, seen in article, wordprob = %s",
+                  word, wordprob)
         wordprob
       }
     }

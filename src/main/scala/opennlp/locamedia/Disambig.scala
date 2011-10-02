@@ -4,6 +4,7 @@
 //////// Copyright (c) 2010, 2011 Ben Wing.
 ////////
 
+package opennlp.locamedia
 import util.matching.Regex
 import math._
 import collection.mutable
@@ -1991,7 +1992,7 @@ abstract class TestFileEvaluator(stratname:String) {
       errprint("")
       errprint("Final results for strategy %s: All %d documents processed:",
                stratname, status.num_processed())
-      errprint("Ending operation at %s", time.ctime())
+      errprint("Ending operation at %s", curtimehuman())
       output_results(isfinal=true)
       errprint("Ending final results for strategy %s", stratname)
     }
@@ -2293,8 +2294,8 @@ abstract class GeotagToponymEvaluator(strategy:GeotagToponymStrategy,
       }
     }
 
-    errprint("Eval: Toponym %s (true: %s at %s),"
-             , (toponym, geogword.location, coord), nonl=true)
+    errout("Eval: Toponym %s (true: %s at %s),", toponym, geogword.location,
+           coord)
     if (correct)
       errprint("correct")
     else
@@ -2360,46 +2361,55 @@ class TRCoNLLGeotagToponymEvaluator(strategy:GeotagToponymStrategy,
   def iter_geogwords(filename:String) {
     var in_loc = false
     var wordstruct = null:GeogWord
-    for (line <- uchompopen(filename, errors="replace")) {
-      try {
-        val ss = """\t""".r.split(line)
-        require(ss.length == 2)
-        val (word, ty) = (ss(0), ss(1))
-        if (word != null) {
-          if (in_loc) {
-            in_loc = false
-            yield wordstruct
+    def iter_1(lines:Iterator[String]) {
+      if (lines.hasNext) {
+        val line = line.next
+        try {
+          val ss = """\t""".r.split(line)
+          require(ss.length == 2)
+          val (word, ty) = (ss(0), ss(1))
+          if (word != null) {
+            var toyield = null:GeogWord
+            if (in_loc) {
+              in_loc = false
+              toyield = wordstruct
+            }
+            wordstruct = GeogWord(word)
+            wordstruct.document = filename
+            if (ty.startsWith("LOC")) {
+              in_loc = true
+              wordstruct.is_toponym = true
+            }
+            else
+              toyield = wordstruct
+            if (toyield != null)
+              return toyield ## iter_1(lines)
           }
-          wordstruct = GeogWord(word)
-          wordstruct.document = filename
-          if (ty.startswith("LOC")) {
-            in_loc = true
-            wordstruct.is_toponym = true
-          }
-          else
-            yield wordstruct
-        }
-        else if (in_loc && ty(0) == '>') {
-          val ss = """\t""".r.split(ty)
-          require(splits.length == 5)
-          val (lat, long, fulltop) = (ss(2), ss(3), ss(4))
-          wordstruct.coord = Coord(lat.toDouble, long.toDouble)
-          wordstruct.location = fulltop
-        }
-      }
-      catch {
-        case exc:Exception => {
-          errprint("Bad line %s", line)
-          errprint("Exception is %s", exc)
-          exc match {
-            case NumberFormatException =>
-            case _ => exc.printStackTrace()
+          else if (in_loc && ty(0) == '>') {
+            val ss = """\t""".r.split(ty)
+            require(splits.length == 5)
+            val (lat, long, fulltop) = (ss(2), ss(3), ss(4))
+            wordstruct.coord = Coord(lat.toDouble, long.toDouble)
+            wordstruct.location = fulltop
           }
         }
-      }
+        catch {
+          case exc:Exception => {
+            errprint("Bad line %s", line)
+            errprint("Exception is %s", exc)
+            exc match {
+              case NumberFormatException =>
+              case _ => exc.printStackTrace()
+            }
+          }
+        }
+        return iter_1(lines)
+      } else if (in_loc)
+        return wordstruct ## Stream[GeogWord].empty()
+      else
+        return Stream[GeogWord].empty
     }
-    if (in_loc)
-      yield wordstruct
+    iter_1(uchompopen(filename, errors="replace"))
   }
 }
 
@@ -2407,30 +2417,41 @@ class WikipediaGeotagToponymEvaluator(strategy:GeotagToponymStrategy,
     stratname:String) extends GeotagToponymEvaluator(strategy, stratname) {
   def iter_geogwords(filename:String) {
     var title = null
-    for (line <- uchompopen(filename, errors="replace")) {
-      if (rematch("Article title: (.*)$", line))
-        title = m_(1)
-      else if (rematch("Link: (.*)$", line)) {
-        val args = m_(1).split('|')
-        val trueart = args(0)
-        var linkword = trueart
-        if (args.length > 1)
-          linkword = args(1)
-        var word = GeogWord(linkword)
-        word.is_toponym = true
-        word.location = trueart
-        word.document = title
-        val art = ArticleTable.lookup_article(trueart)
-        if (art != null)
-          word.coord = art.coord
-        yield word
-      }
-      else {
-        word = GeogWord(line)
-        word.document = title
-        yield word
-      }
+    val titlere = """Article title: (.*)$""".r
+    val linkre = """Link: (.*)$""".r
+    def iter_1(lines:Iterator[String]) {
+      if (lines.hasNext) {
+        val line = line.next
+        line match {
+          case titlere(mtitle) => {
+            title = mtitle
+            iter_1(lines)
+          }
+          case linkre(mlink) => {
+            val args = mlink.split('|')
+            val trueart = args(0)
+            var linkword = trueart
+            if (args.length > 1)
+              linkword = args(1)
+            var word = GeogWord(linkword)
+            word.is_toponym = true
+            word.location = trueart
+            word.document = title
+            val art = ArticleTable.lookup_article(trueart)
+            if (art != null)
+              word.coord = art.coord
+            word ## iter_1(lines)
+          }
+          case _ => {
+            word = GeogWord(line)
+            word.document = title
+            word ## iter_1(lines)
+          }
+        }
+      } else
+        Stream[GeogWord].empty
     }
+    iter_1(uchompopen(filename, errors="replace"))
   }
 }
 
@@ -2498,12 +2519,14 @@ class BaselineGeotagDocumentStrategy(baseline_strategy:String)
     def find_good_regions_for_coord(
         cands:Iterable[Tuple2[Article, Double]]) = {
       for ((cand, links) <- candlinks) {
-        val reg = StatRegion.find_region_for_coord(cand.coord)
-        if (reg.latind == null)
-          errprint("Strange, found no region for candidate %s", cand)
-        else
-          yield (reg, links)
-      }
+        val reg = {
+          val retval = StatRegion.find_region_for_coord(cand.coord)
+          if (retval.latind == null)
+            errprint("Strange, found no region for candidate %s", cand)
+          retval
+        }
+        if (reg.latind != null)
+      } yield (reg, links)
     }
 
     // Convert to regions
@@ -2715,7 +2738,7 @@ class WikipediaGeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
   //                This is a single number, and the grid will be a square
   //                centered on the true region.
   register_list_debug_param("gridrank")
-  debugint("gridranksize") = "11"
+  debugval("gridranksize") = "11"
 
   def iter_documents(filename:String) = {
     for (art <- ArticleTable.articles_by_split[Opts.eval_set])
@@ -2821,7 +2844,7 @@ class WikipediaGeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
             errprint("Grid for ranking:")
           else
             errprint("Grid for goodness/distance:")
-          for (lat <- fromto(max_latind, min_latind)) {
+          for (lat <- max_latind to min_latind) {
             for (long <- fromto(min_longind, max_longind)) {
               val regvalrank = grid.getOrElse((lat,long), null)
               if (regvalrank == null)
@@ -2852,14 +2875,6 @@ class PCLTravelGeotagDocumentEvaluator(strategy:GeotagDocumentStrategy,
   type Document = TitledDocument
 
   def iter_documents(filename:String) = {
-    // Find XML nodes using depth-first search.  "match" is either a
-    // string (match localName on that string) or a predicate.
-    def find_node_dfs(node:Elem, localname:String, artmatch:Elem => Boolean) = {
-      if (artmatch == null)
-        depth_first_search(node, _.localName == localname, _.childNodes)
-      else
-        depth_first_search(node, artmatch, _.childNodes)
-    }
 
     val dom = try {
     // On error, just return, so that we don't have problems when called
@@ -2942,7 +2957,7 @@ object ProcessFiles {
   // Read in the list of stopwords from the given filename.
   def read_stopwords(filename:String) {
     errprint("Reading stopwords from %s...", filename)
-    val stopwords = Source.fromFile(filename).getLines().toSet
+    val stopwords = uchompopen(filename).toSet
   }
   
   def read_article_data(filename:String) {
@@ -3023,7 +3038,7 @@ object ProcessFiles {
     // Written this way because there's another line after the for loop,
     // corresponding to the else clause of the Python for loop
     breakable {
-      for (line <- Source.fromFile(filename).getLines()) {
+      for (line <- uchompopen(filename)) {
         if (line.startsWith("Article title: ")) {
           var m = "Article title: (.*)$".r(line)
           if (title != null)
@@ -3043,7 +3058,7 @@ object ProcessFiles {
           val wordhash = intmap()
           total_tokens = 0
         }
-        else if ((line.startswith("Article coordinates) ") || line.startswith("Article ID: "))
+        else if ((line.startsWith("Article coordinates) ") || line.startsWith("Article ID: "))
           ()
         else {
           ("(.*) = ([0-9]+)$", line) match {
@@ -3111,13 +3126,11 @@ object ProcessFiles {
   // If given a directory, yield all the files in the directory; else just
   // yield the file.
   def iter_directory_files(dir:String) {
-    if (os.path.isdir(dir)) 
+    if (os.path.isdir(dir)) {
       for (fname <- os.listdir(dir)) {
         val fullname = os.path.join(dir, fname)
-        yield fullname
-      }
-    else
-      yield dir
+      } yield fullname
+    } else List(dir)
   }
     
   // Given an evaluation file, count the toponyms seen and add to the global count
@@ -3242,8 +3255,8 @@ object WorldGazetteer {
     loc.artmatch = artmatch
     artmatch.location = loc
     if (debug("lots"))
-      errprint("Matched location %s (coord %s) with article %s, dist=%s"
-               , (loc.name, loc.coord, artmatch,
+      errprint("Matched location %s (coord %s) with article %s, dist=%s",
+               (loc.name, loc.coord, artmatch,
                   spheredist(loc.coord, artmatch.coord)))
   }
 
@@ -3256,12 +3269,14 @@ object WorldGazetteer {
     val status = StatusMessage("gazetteer entry")
 
     // Match each entry in the gazetteer
-    for (line <- uchompopen(filename)) breakable {
-      if (debug("lots"))
-        errprint("Processing line: %s", line)
-      match_world_gazetteer_entry(line)
-      if (status.item_processed(maxtime=Opts.max_time_per_stage))
-        break
+    breakable {
+      for (line <- uchompopen(filename)) {
+        if (debug("lots"))
+          errprint("Processing line: %s", line)
+        match_world_gazetteer_entry(line)
+        if (status.item_processed(maxtime=Opts.max_time_per_stage))
+          break
+      }
     }
 
     Division.finish_all()
@@ -3275,7 +3290,7 @@ object WorldGazetteer {
 /////////////////////////////////////////////////////////////////////////////
 
 object Opts {
-  op = new OptionParser(...)
+  val op = new OptionParser("disambig")
     //////////// Input files
   def stopwords_file =
     op.option[String]("stopwords-file",
@@ -3590,11 +3605,28 @@ Possibilities are 'none' (no transformation), 'log' (take the log), and
   def lru_cache_size =
     op.option[Int]("lru-cache-size", "lru", default=400,
       help="""Number of entries in the LRU cache.""")
+  
+  // Shared options in old code
+  def max_time_per_stage =
+    op.option[Int]("max-time-per-stage", "mts", default=0,
+      help="""Maximum time per stage in seconds.  If 0, no limit.
+  Used for testing purposes.  Default %default.""")
+  def debug =
+    op.option[String]("d", "debug", metavar="FLAGS",
+      help="Output debug info of the given types (separated by spaces or commas)")
 }
 
-class WikiDisambigProgram extends NLPProgram {
-  def handle_arguments(op:OptionParser, args:List[String]) = {
-    global debug
+object WikiDisambigProgram extends NLPApp {
+  val opts = Opts
+  val op = Opts.op
+
+  var need_to_read_stopwords = false
+
+  override def output_parameters() {
+    errprint("Need to read stopwords: %s", need_to_read_stopwords)
+  }
+
+  def handle_arguments(op:OptionParser, args:List[String]) {
     if (Opts.debug) {
       val params = """[:;\s]+""".r.split(Opts.debug)
       // Allow params with values, and allow lists of values to be given
@@ -3610,18 +3642,10 @@ class WikiDisambigProgram extends NLPProgram {
             debug(param) = value
         }
         else
-          debug(f) = true
+          booldebug(f) = true
       }
-      WordDist.set_debug(debug)
     }
 
-    class Params {
-      ()
-    }
-
-    params = Params()
-    params.need_to_read_stopwords = false
-   
     // Canonicalize options
     if (!Opts.strategy) {
       if (Opts.mode == "geotag-documents")
@@ -3672,9 +3696,11 @@ class WikiDisambigProgram extends NLPProgram {
     // use maximum_latitude = 90 in the following computations, then we would
     // end up with the North Pole in a region by itself, something we probably
     // don't want.
-    val (maximum_latind, maximum_longind) = coord_to_tiling_region_indices(Coord(maximum_latitude - 1e-10,
+    val (maximum_latind, maximum_longind) =
+      coord_to_tiling_region_indices(Coord(maximum_latitude - 1e-10,
                                            maximum_longitude))
-    val (minimum_latind, minimum_longind) = coord_to_tiling_region_indices(Coord(minimum_latitude,
+    val (minimum_latind, minimum_longind) =
+      coord_to_tiling_region_indices(Coord(minimum_latitude,
                                            minimum_longitude))
 
     if (Opts.width_of_stat_region <= 0)
@@ -3682,9 +3708,9 @@ class WikiDisambigProgram extends NLPProgram {
 
     //// Start reading in the files and operating on them ////
 
-    if (Opts.mode.startswith("geotag")) {
-      params.need_to_read_stopwords = true
-      if ((Opts.mode == "geotag-toponyms" && Opts.strategy == Seq("baseline")))
+    if (Opts.mode.startsWith("geotag")) {
+      need_to_read_stopwords = true
+      if (Opts.mode == "geotag-toponyms" && Opts.strategy == Seq("baseline"))
         ()
       else if (!Opts.counts_file)
         op.error("Must specify counts file")
@@ -3720,7 +3746,7 @@ class WikiDisambigProgram extends NLPProgram {
 
     if (Opts.mode == "geotag-documents" && Opts.eval_format == "wiki")
       () // No need for evaluation file, uses the counts file
-    else if (Opts.mode.startswith("geotag"))
+    else if (Opts.mode.startsWith("geotag"))
       need("eval_file", "evaluation file(s)")
 
     if (Opts.mode == "generate-kml")
@@ -3729,23 +3755,21 @@ class WikiDisambigProgram extends NLPProgram {
       op.error("--kml-words only compatible with --mode=generate-kml")
 
     need("article_data_file")
-
-    params
   }
 
-  def implement_main(params:Map[String,?], args:List[String]) {
-    if (params.need_to_read_stopwords)
+  def implement_main(op:OptionParser, args:List[String]) {
+    if (need_to_read_stopwords)
       read_stopwords(Opts.stopwords_file)
     for (fn <- Opts.article_data_file)
       read_article_data(fn)
 
-    //errprint("Processing evaluation file(s) %s for toponym counts...", Opts.eval_file)
-    //process_dir_files(Opts.eval_file, count_toponyms_in_file)
-    //errprint("Number of toponyms seen: %s", len(toponyms_seen_in_eval_files))
-    //errprint("Number of toponyms seen more than once: %s", //  len([foo for (foo,count) in toponyms_seen_in_eval_files.iteritems() if
-    //       count > 1]))
-    //output_reverse_sorted_table(toponyms_seen_in_eval_files,
-    //                            outfile=sys.stderr)
+    errprint("Processing evaluation file(s) %s for toponym counts...", Opts.eval_file)
+    process_dir_files(Opts.eval_file, count_toponyms_in_file)
+    errprint("Number of toponyms seen: %s", len(toponyms_seen_in_eval_files))
+    errprint("Number of toponyms seen more than once: %s", //  len([foo for (foo,count) in toponyms_seen_in_eval_files.iteritems() if
+           count > 1]))
+    output_reverse_sorted_table(toponyms_seen_in_eval_files,
+                                outfile=sys.stderr)
 
     // Read in the words-counts file
     for (fn <- Opts.counts_file)
@@ -3817,7 +3841,7 @@ Not generating an empty KML file.""", word)
           }
           else {
             val strategy =
-              if (stratname.startswith("naive-bayes-"))
+              if (stratname.startsWith("naive-bayes-"))
                 NaiveBayesDocumentStrategy(
                   use_baseline=(stratname == "naive-bayes-with-baseline"))
               else stratname match {
