@@ -343,8 +343,8 @@ object NlpUtil {
     val upper = word.last >= 'A' && word.last <= 'Z'
     val lowerword = word.toLower()
     if (re.match(""".*[b-df-hj-np-tv-z]y$""", lowerword)) {
-      if upper: return word[:-1] + "IES"
-      else: return word[:-1] + "ies"
+      if upper: return word(:-1) + "IES"
+      else: return word(:-1) + "ies"
     }
     else if (re.match(""".*([cs]h|[sx])$""", lowerword)) {
       if upper: return word + "ES"
@@ -361,7 +361,7 @@ object NlpUtil {
    */
   def capfirst(st:String) = {
     if !st: return st
-    return st[0].capitalize() + st[1:]
+    return st(0).capitalize() + st(1:)
   }
   
   // From: http://stackoverflow.com/questions/1823058/how-to-print-number-with-commas-as-thousands-separators-in-python-2-x
@@ -387,10 +387,10 @@ object NlpUtil {
     "Return the median value of a sorted list."
     var l = list.length
     if (l % 2 == 1)
-      return list[l / 2]
+      return list(l / 2)
     else {
       l = l / 2
-      return 0.5*(list[l-1] + list[l])
+      return 0.5*(list(l-1) + list(l))
     }
   }
   
@@ -676,44 +676,44 @@ object NlpUtil {
   // item_processed()
   class StatusMessage(item_name:String, secs_between_output:Double=15) {
     import NlpUtil._
-    val self.plural_item_name = pluralize(item_name)
-    var self.items_processed = 0
-    val self.first_time = curtimesecs()
-    var self.last_time = self.first_time
+    val plural_item_name = pluralize(item_name)
+    var items_processed = 0
+    val first_time = curtimesecs()
+    var last_time = first_time
   
-    def num_processed(self) = items_processed
+    def num_processed() = items_processed
   
-    def elapsed_time(self) = curtimesecs() - self.first_time
+    def elapsed_time() = curtimesecs() - first_time
   
-    def item_unit(self) = {
-      if (self.items_processed == 1)
-        self.item_name
+    def item_unit() = {
+      if (items_processed == 1)
+        item_name
       else
-        self.plural_item_name
+        plural_item_name
     }
   
-    def item_processed(self, maxtime:Double=0) = {
+    def item_processed(maxtime:Double=0) = {
       val curtime = curtimesecs()
-      self.items_processed += 1
+      items_processed += 1
       val total_elapsed_secs =
-        (curtime - self.first_time) toInt
-      val last_elapsed_secs = (curtime - self.last_time) toInt
-      if (last_elapsed_secs >= self.secs_between_output) {
+        (curtime - first_time) toInt
+      val last_elapsed_secs = (curtime - last_time) toInt
+      if (last_elapsed_secs >= secs_between_output) {
         // Rather than directly recording the time, round it down to the nearest
         // multiple of secs_between_output; else we will eventually see something
         // like 0, 15, 45, 60, 76, 91, 107, 122, ...
         // rather than
         // like 0, 15, 45, 60, 76, 90, 106, 120, ...
-        val rounded_elapsed = ((total_elapsed_secs / self.secs_between_output).toInt() *
-                           self.secs_between_output)
-        self.last_time = self.first_time + rounded_elapsed
+        val rounded_elapsed = ((total_elapsed_secs / secs_between_output).toInt() *
+                           secs_between_output)
+        last_time = first_time + rounded_elapsed
         errprint("Elapsed time: %s minutes %s seconds, %s %s processed",
                  (total_elapsed_secs / 60).toInt, total_elapsed_secs % 60,
-                 self.items_processed, self.item_unit())
+                 items_processed, item_unit())
       }
       if (maxtime > 0 && total_elapsed_secs >= maxtime) {
         errprint("Maximum time reached, interrupting processing after %s %s",
-                 self.items_processed, self.item_unit())
+                 items_processed, item_unit())
         true
       }
       else false
@@ -759,15 +759,15 @@ object NlpUtil {
       var yieldme = mutable.List[Int]()
       for (j <- 0 until num_splits) {
         //println("j=%s, this_output=%s" format (j, this_output))
-        if (cumulative_articles[j] < normalized_split_fractions[j]) {
+        if (cumulative_articles(j) < normalized_split_fractions(j)) {
           yieldme += j
-          cumulative_articles[j] += 1
+          cumulative_articles(j) += 1
         }
       }
       if (yieldme.length == 0) {
         for (j <- 0 until num_splits) {
-          while (cumulative_articles[j] >= normalized_split_fractions[j])
-            cumulative_articles[j] -= normalized_split_fractions[j]
+          while (cumulative_articles(j) >= normalized_split_fractions(j))
+            cumulative_articles(j) -= normalized_split_fractions(j)
         }
       }
       yieldme.toStream ++ fuckme_no_yield()
@@ -797,7 +797,7 @@ object NlpUtil {
 
     def need(errmsg:String) { op.need(errmsg) }
 
-    def main(self) = {
+    def main() = {
       errprint("Beginning operation at %s" format curtimehuman())
       errprint("Arguments: %s" format (args mkString " "))
       op.parse(opts, args)
@@ -862,7 +862,7 @@ object NlpUtil {
 
   class LRUCache[T,U](maxsize:Int=1000) extends mutable.Map[T,U]
     with mutable.MapLike[T,U,LRUCache[T,U]] {
-    val self.cache = mutable.LinkedHashMap[T,U]()
+    val cache = mutable.LinkedHashMap[T,U]()
 
     // def length = return cache.length
 
@@ -873,7 +873,7 @@ object NlpUtil {
     }
 
     def get(key: T): Option[U] = {
-      if (self.cache contains key) {
+      if (cache contains key) {
         reprioritize(key)
         Some(cache(key))
       }
@@ -881,10 +881,10 @@ object NlpUtil {
     }
  
     override def update(key:T, value:U) {
-      if (self.cache contains key)
+      if (cache contains key)
         reprioritize(key)
       else {
-        while (self.cache.length >= maxsize) {
+        while (cache.length >= maxsize) {
           val (key2, value) = cache.head()
           cache -= key2
         }
@@ -918,9 +918,9 @@ object NlpUtil {
       new MapBuilder[T, U, LRUCache[T,U]](empty)
 
     implicit def canBuildFrom[T,U]
-      : CanBuildFrom[LRUCache[_], (T,U), LRUCache[T]] =
-        new CanBuildFrom[LRUCache[_], (T,U), LRUCache[T]] {
-          def apply(from: LRUCache[_]) = newBuilder[T,U]
+      : CanBuildFrom[LRUCache(_), (T,U), LRUCache[T]] =
+        new CanBuildFrom[LRUCache(_), (T,U), LRUCache[T]] {
+          def apply(from: LRUCache(_)) = newBuilder[T,U]
           def apply() = newBuilder[T,U]
         }
   }
@@ -1022,13 +1022,13 @@ object NlpUtil {
     // it iter_ranges() when returning the lower bound of the lowest range,
     // and can be an item of any type, e.g. the number 0, the string "-infinity",
     // etc.
-    val self.items_by_range = Map[Double,Coll]()
+    val items_by_range = Map[Double,Coll]()
   
-    def get_collector(self, key:Double) {
-      var lower_range = self.lowest_bound
+    def get_collector(key:Double) {
+      var lower_range = lowest_bound
       // upper_range = "infinity"
       breakable {
-        for (i <- self.ranges) {
+        for (i <- ranges) {
           if (i <= key)
             lower_range = i
           else {
@@ -1037,9 +1037,9 @@ object NlpUtil {
           }
         }
       }
-      if (!(lower_range contains self.items_by_range))
-        self.items_by_range[lower_range] = create()
-      return self.items_by_range[lower_range]
+      if (!(lower_range contains items_by_range))
+        items_by_range(lower_range) = create()
+      return items_by_range(lower_range)
     }
   
     /**
@@ -1061,16 +1061,16 @@ object NlpUtil {
     def iter_ranges(unseen_between:Boolean=true, unseen_all:Boolean=false) {
       var highest_seen = null
       def iteration_range =
-        (List(self.lowest_bound) ++ self.ranges) zip
-         (self.ranges ++ List(Double.PositiveInfinity))
+        (List(lowest_bound) ++ ranges) zip
+         (ranges ++ List(Double.PositiveInfinity))
       for ((lower, upper) <- iteration_range) {
-        if (self.items_by_range contains lower)
+        if (items_by_range contains lower)
           highest_seen = upper
       }
   
       var seen_any = false
       for {(lower, upper) <- iteration_range
-           val collector = self.items_by_range.get(lower, null)
+           val collector = items_by_range.get(lower, null)
            if (collector != null || unseen_all ||
                (unseen_between && seen_any &&
                 upper != Double.PositiveInfinity && upper <= highest_seen))
