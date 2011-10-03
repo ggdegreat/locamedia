@@ -992,7 +992,8 @@ object NlpUtil {
     return 0
   }
   
-  def format_minutes_seconds(var secs:Double) {
+  def format_minutes_seconds(seconds:Double) {
+    var secs = seconds
     var mins = (secs / 60) toInt
     secs = secs % 60
     val hours = (mins / 60) toInt

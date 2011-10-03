@@ -84,7 +84,7 @@ object Disambig {
   }
 }
 
-object RegionDist {
+object KMLConstants {
   // Height of highest bar in meters
   val kml_max_height = 2000000
   
@@ -472,6 +472,7 @@ class RegionWordDist extends WordDist {
 class RegionDist(word:String=null,
                  regionprobs:Map[Region, Double]=Map[Region, Double]()) {
   var normalized = false
+  import KMLConstants._
 
   private def init() {
     // It's expensive to compute the value for a given word so we cache word

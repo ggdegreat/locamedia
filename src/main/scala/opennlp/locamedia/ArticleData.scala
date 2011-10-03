@@ -86,45 +86,6 @@ object Coord {
   }
 }
 
-object Article {
-  // Compute the short form of an article name.  If short form includes a
-  // division (e.g. "Tucson, Arizona"), return a tuple (SHORTFORM, DIVISION);
-  // else return a tuple (SHORTFORM, None).
-  
-  def compute_short_form(name: String) {
-    val includes_div_re = """(.*?), (.*)$""".r
-    val includes_parentag_re = """(.*) \(.*\)$""".r
-    name match {
-      case includes_div_re(tucson, arizona) => (tucson, arizona)
-      case includes_parentag_re(tucson, city) => (tucson, null)
-      case _ => (name, null)
-    }
-  }
-
-  def adjust_incoming_links(links: Double) = {
-    if (links == 0) // Whether from unknown count or count is actually zero
-      0.01 // So we don't get errors from log(0)
-    else links
-  }
-
-  def adjust_incoming_links(incoming_links: Option[Int]) = {
-    val ail =
-      incoming_links match {
-        case None => {
-          if (debug("some"))
-            warning("Strange, %s has no link count", obj)
-          0
-        }
-        case Some(il) => {
-          if (debug("some"))
-            errprint("--> Link count is %s", il)
-          il
-        }
-      }
-    adjust_incoming_links(ail)
-  }
-}
-
 // A Wikipedia article.  Defined fields:
 //
 //   title: Title of article.
@@ -193,6 +154,45 @@ class Article(params:Map[String,String]) {
 }
 
 object Article {
+  // Compute the short form of an article name.  If short form includes a
+  // division (e.g. "Tucson, Arizona"), return a tuple (SHORTFORM, DIVISION);
+  // else return a tuple (SHORTFORM, None).
+  
+  def compute_short_form(name: String) {
+    val includes_div_re = """(.*?), (.*)$""".r
+    val includes_parentag_re = """(.*) \(.*\)$""".r
+    name match {
+      case includes_div_re(tucson, arizona) => (tucson, arizona)
+      case includes_parentag_re(tucson, city) => (tucson, null)
+      case _ => (name, null)
+    }
+  }
+
+  def adjust_incoming_links(links: Double) = {
+    if (links == 0) // Whether from unknown count or count is actually zero
+      0.01 // So we don't get errors from log(0)
+    else links
+  }
+
+  def adjust_incoming_links(incoming_links: Option[Int]) = {
+    val ail =
+      incoming_links match {
+        case None => {
+          if (debug("some"))
+            warning("Strange, %s has no link count", obj)
+          0
+        }
+        case Some(il) => {
+          if (debug("some"))
+            errprint("--> Link count is %s", il)
+          il
+        }
+      }
+    adjust_incoming_links(ail)
+  }
+
+  /************************ Conversion functions ************************/
+
   def yesno_to_boolean(foo:String)  = {
     foo match {
       case "yes" => true

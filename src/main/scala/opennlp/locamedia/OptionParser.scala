@@ -325,10 +325,8 @@ class OptionParser(prog:String) {
     argmap
   }
 
-  def need(arg:String, var arg_english:String=null) {
+  def need(arg:String, arg_english:String=arg.replace("_", " ")) {
     check_args_available()
-    if (arg_english == null)
-      arg_english = arg.replace("_", " ")
     val option = argmap(arg)
     if (!option.specified)
       error("Must specify %s using --%s" format
@@ -344,7 +342,7 @@ object TestOpts extends App {
     def bar = op.option[String]("bar", default="fuck")
     def baz = op.multiOption[String]("baz")
     def bat = op.multiOption[Int]("bat")
-    def blop = op.option[String]("blop", choices=Seq("mene", "tekel", "upharsin"), canonicalize=Map()
+    def blop = op.option[String]("blop", choices=Seq("mene", "tekel", "upharsin"), canonicalize=Map())
     def blop2 = op.multiOption[String]("blop2", choices=Seq("mene", "tekel", "upharsin"))
   }
   // op.parse(Opts, List("--foo", "7"))
