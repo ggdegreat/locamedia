@@ -308,12 +308,12 @@ other implementations.
 
   def lookup_word(word:String) = {
     assert(finished)
-    if (debug("some")) {
-      errprint("Found counts for article %s, num word types = %s",
-               art, wordcounts(0).length)
-      errprint("Unknown prob = %s, overall_unseen_mass = %s",
-               unseen_mass, overall_unseen_mass)
-    }
+    // if (debug("some")) {
+    //   errprint("Found counts for article %s, num word types = %s",
+    //            art, wordcounts(0).length)
+    //   errprint("Unknown prob = %s, overall_unseen_mass = %s",
+    //            unseen_mass, overall_unseen_mass)
+    // }
     val retval = counts.get(word) match {
       case None => {
         WordDist.overall_word_probs.get(word) match {

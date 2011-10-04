@@ -1,6 +1,7 @@
 package opennlp.locamedia
 
 import NlpUtil._
+import Distances._
 import util.control.Breaks._
 import java.io._
 import io.Source
@@ -48,44 +49,6 @@ object ArticleData {
     for (art <- articles)
       uniprint(art.get_fields(outfields) mkString "\t", outfile=outfile)
     outfile.close()
-  }
-}
-
-// A 2-dimensional coordinate.
-//
-// The following fields are defined:
-//
-//   lat, long: Latitude and longitude of coordinate.
-
-case class Coord(lat:Double, long:Double) {
-  import Coord._
-  // Not sure why this code was implemented with coerce_within_bounds,
-  // but either always coerce, or check the bounds ...
-  require(lat >= minimum_latitude)
-  require(lat <= maximum_latitude)
-  require(long >= minimum_longitude)
-  require(long <= maximum_longitude)
-  override def toString() = "(%.2f,%.2f)".format(lat, long)
-}
-
-object Coord {
-  val minimum_latitude = -90.0
-  val maximum_latitude = 90.0
-  val minimum_longitude = -180.0
-  val maximum_longitude = 180.0 - 1e-10
-
-  //// If coerce_within_bounds=true, then force the values to be within
-  //// the allowed range, by wrapping longitude and bounding latitude.
-  def apply(lat:Double, long:Double, coerce_within_bounds:Boolean) = {
-    var newlat = lat
-    var newlong = long
-    if (coerce_within_bounds) {
-      if (newlat > maximum_latitude) newlat = maximum_latitude
-      while (newlong > maximum_longitude) newlong -= 360.
-      if (newlat < minimum_latitude) newlat = minimum_latitude
-      while (newlong < minimum_longitude) newlong += 360.
-    }
-    new Coord(newlat, newlong)
   }
 }
 

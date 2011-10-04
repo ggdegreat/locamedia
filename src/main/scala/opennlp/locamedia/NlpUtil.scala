@@ -398,9 +398,9 @@ object NlpUtil {
     }
   }
   
-  def mean(list:Seq[Double]) {
+  def mean(list:Seq[Double]) = {
     "Return the mean of a list."
-    return sum(list) / float(list.length)
+    return (list.sum) / float(list.length)
   }
   
   // A function to make up for a missing feature in Scala.  Split a text
@@ -760,7 +760,7 @@ object NlpUtil {
     // any will ensure that the total ratios still work out appropriately.
  
     def fuckme_no_yield() {
-      var yieldme = mutable.List[Int]()
+      var yieldme = mutable.Seq[Int]()
       for (j <- 0 until num_splits) {
         //println("j=%s, this_output=%s" format (j, this_output))
         if (cumulative_articles(j) < normalized_split_fractions(j)) {
@@ -793,8 +793,8 @@ object NlpUtil {
     // Things that must be implemented
     val opts:AnyRef
     val op:OptionParser
-    def handle_arguments(op:OptionParser, args:List[String])
-    def implement_main(op:OptionParser, args:List[String])
+    def handle_arguments(op:OptionParser, args:Seq[String])
+    def implement_main(op:OptionParser, args:Seq[String])
 
     // Things that may be overridden
     def output_parameters() {}
@@ -1037,7 +1037,7 @@ object NlpUtil {
   // and can be an item of any type, e.g. the number 0, the string "-infinity",
   // etc.
   abstract class TableByRange[Coll,Numtype](
-    ranges:List[Numtype],
+    ranges:Seq[Numtype],
     create:()=>Coll
   ) {
     val min_value:Numtype
@@ -1045,7 +1045,7 @@ object NlpUtil {
     val items_by_range = Map[Numtype,Coll]()
     var seen_negative = false
   
-    def get_collector(key:Numtype) {
+    def get_collector(key:Numtype) = {
       if (key < 0)
         seen_negative = true
       var lower_range = min_value
@@ -1062,7 +1062,7 @@ object NlpUtil {
       }
       if (!(items_by_range contains lower_range))
         items_by_range(lower_range) = create()
-      return items_by_range(lower_range)
+      items_by_range(lower_range)
     }
   
     /**
@@ -1108,7 +1108,7 @@ object NlpUtil {
   }
 
   class IntTableByRange[Coll](
-    ranges:List[Numtype],
+    ranges:Seq[Numtype],
     create:()=>Coll
   ) extends TableByRange[Coll,Int](ranges, create) {
     val min_value = java.lang.Integer.MIN_VALUE
@@ -1116,7 +1116,7 @@ object NlpUtil {
   }
 
   class DoubleTableByRange[Coll](
-    ranges:List[Numtype],
+    ranges:Seq[Numtype],
     create:()=>Coll
   ) extends TableByRange[Coll,Double](ranges, create) {
     val min_value = java.lang.Double.NEGATIVE_INFINITY
