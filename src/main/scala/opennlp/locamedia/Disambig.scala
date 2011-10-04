@@ -14,6 +14,7 @@ import NlpUtil._
 import ArticleData._
 import WordDist._
 import java.io.File
+import optparse._
 
 //import sys
 //import os
@@ -39,51 +40,45 @@ import java.io.File
 //                                  Globals                                //
 /////////////////////////////////////////////////////////////////////////////
 
-object Disambig {
+/////////////////////////////////////////////////////////////////////////////
+//                               Structures                                //
+/////////////////////////////////////////////////////////////////////////////
   
-  /////////////////////////////////////////////////////////////////////////////
-  //                               Structures                                //
-  /////////////////////////////////////////////////////////////////////////////
+//  def print_structure(struct:Any, indent:Int=0) {
+//    val indstr = " "*indent
+//    if (struct == null)
+//      errprint("%snull", indstr)
+//    else if (struct.isInstanceOf[Tuple2[Any,Any]]) {
+//      val (x,y) = struct.asInstanceOf[Tuple2[Any,Any]]
+//      print_structure(List(x,y), indent)
+//    } else if (!(struct.isInstanceOf[Seq[Any]]) ||
+//               struct.asInstanceOf[Seq[Any]].length == 0)
+//      errprint("%s%s", indstr, struct)
+//    else {
+//      if (struct(0).isInstanceOf[String]) {
+//        errprint("%s%s:", indstr, struct.asInstanceOf[String](0))
+//        indstr += "  "
+//        indent += 2
+//        struct = struct.slice(1)
+//      }
+//      for (s <- struct) {
+//        if (isinstance(s, Seq))
+//          print_structure(s, indent + 2)
+//        else if (isinstance(s, tuple)) {
+//          val (key, value) = s
+//          if (isinstance(value, Seq)) {
+//            errprint("%s%s:", indstr, key)
+//            print_structure(value, indent + 2)
+//          }
+//          else
+//            errprint("%s%s: %s", indstr, key, value)
+//        }
+//        else
+//          errprint("%s%s", indstr, s)
+//      }
+//    }
+//  }
   
-  def print_structure(struct:Any, indent:Int=0) {
-    val indstr = " "*indent
-    if (struct == null)
-      errprint("%snull", indstr)
-    else if (struct.isInstanceOf[Tuple2[Any,Any]]) {
-      val (x,y) = struct
-      print_structure(List(x,y), indent)
-    } else if (!(struct.isInstanceOf[Seq[Any]]) || struct.length == 0)
-      errprint("%s%s", indstr, struct)
-    else {
-      if (struct(0).isInstanceOf[String]) {
-        errprint("%s%s:", indstr, struct(0))
-        indstr += "  "
-        indent += 2
-        struct = struct.slice(1)
-      }
-      for (s <- struct) {
-        if (isinstance(s, Seq))
-          print_structure(s, indent + 2)
-        else if (isinstance(s, tuple)) {
-          val (key, value) = s
-          if (isinstance(value, Seq)) {
-            errprint("%s%s:", indstr, key)
-            print_structure(value, indent + 2)
-          }
-          else
-            errprint("%s%s: %s", indstr, key, value)
-        }
-        else
-          errprint("%s%s", indstr, s)
-      }
-    }
-  }
-  
-  def main() {
-    WikiDisambigProgram()
-  }
-}
-
 object KMLConstants {
   // Height of highest bar in meters
   val kml_max_height = 2000000
@@ -207,8 +202,10 @@ object Distances {
   // Convert region indices to the corresponding coordinate.  This can also
   // be used to find the coordinate of the southwest corner of a tiling region
   // or statistical region, as both are identified by the region indices of
-  // their southwest corner.
-  def region_indices_to_coord(latind:Int, longind:Int,
+  // their southwest corner.  Values are double since we may be requesting the
+  // coordinate of a location not exactly at a region index (e.g. the center
+  // point).
+  def region_indices_to_coord(latind:Double, longind:Double,
                               coerce_within_bounds:Boolean=false) = {
     Coord(latind * degrees_per_region, longind * degrees_per_region,
         coerce_within_bounds=coerce_within_bounds)
@@ -299,9 +296,7 @@ class Boundary(botleft:Coord, topright:Coord) {
     "Boundary(%s)" format toString()
   }
 
-  def struct() = {
-    List("Boundary", ("boundary", "%s-%s" format (botleft, topright)))
-  }
+  def struct() = <Boundary boundary={"%s-%s" format (botleft, topright)}/>
 
   def contains(coord:Coord) = {
     if (!(coord.lat >= botleft.lat && coord.lat <= topright.lat))
@@ -318,14 +313,15 @@ class Boundary(botleft:Coord, topright:Coord) {
   }
 
   def square_area() = {
+    import Distances._
     var (lat1, lon1) = (botleft.lat, botleft.long)
     var (lat2, lon2) = (topright.lat, topright.long)
-    val lat1 = (lat1 / 180.) * Pi
-    val lat2 = (lat2 / 180.) * Pi
-    val lon1 = (lon1 / 180.) * Pi
-    val lon2 = (lon2 / 180.) * Pi
+    lat1 = (lat1 / 180.) * Pi
+    lat2 = (lat2 / 180.) * Pi
+    lon1 = (lon1 / 180.) * Pi
+    lon2 = (lon2 / 180.) * Pi
 
-    (earth_radius_in_miles ** 2) *
+    (earth_radius_in_miles * earth_radius_in_miles) *
      abs(sin(lat1) - sin(lat2)) *
      abs(lon1 - lon2)
   }
@@ -334,6 +330,7 @@ class Boundary(botleft:Coord, topright:Coord) {
   // 'nonempty_word_dist' is true, only yield regions with a non-empty
   // word distribution; else, yield all non-empty regions.
   def iter_nonempty_tiling_regions() {
+    import Distances._
     val (latind1, longind1) = coord_to_tiling_region_indices(botleft)
     val (latind2, longind2) = coord_to_tiling_region_indices(topright)
     for {i <- latind1 to latind2 view
@@ -341,7 +338,7 @@ class Boundary(botleft:Coord, topright:Coord) {
                   else (longind1 to maximum_longind view) ++
                        (minimum_longind to longind2 view)
          j <- it
-         if (StatRegion.tiling_region_to_articles contains (i, j))
+         if (StatRegion.tiling_region_to_articles contains ((i, j)))
         } yield (i, j)
   }
 }
@@ -360,16 +357,16 @@ class Boundary(botleft:Coord, topright:Coord) {
 //   incoming_links: Total number of incoming links.
 
 class RegionWordDist extends WordDist {
-  val num_arts_for_links = 0
-  val incoming_links = 0
-  val num_arts_for_word_dist = 0
+  var num_arts_for_links = 0
+  var incoming_links = 0
+  var num_arts_for_word_dist = 0
 
   def is_empty_for_word_dist() = num_arts_for_word_dist == 0
 
   def is_empty() = num_arts_for_links == 0
 
   // Add the given articles to the total distribution seen so far
-  def add_articles(articles:Iterable[Article]) {
+  def add_articles(articles:Iterable[StatArticle]) {
     var this_incoming_links = 0
     if (debug("lots"))
       errprint("Region dist, number of articles = %s", num_arts_for_word_dist)
@@ -383,7 +380,7 @@ class RegionWordDist extends WordDist {
         case _ =>
       }
       this_num_arts_for_links += 1
-      if (!art.dist) {
+      if (art.dist == null) {
         if (Opts.max_time_per_stage == 0 && Opts.num_training_docs == 0)
           warning("Saw article %s without distribution", art)
       } else {
@@ -397,7 +394,7 @@ class RegionWordDist extends WordDist {
     num_arts_for_links += this_num_arts_for_links
     num_arts_for_word_dist = this_num_arts_for_word_dist
     incoming_links += this_incoming_links
-    if (this_num_arts_for_word_dist && debug("lots")) {
+    if (this_num_arts_for_word_dist > 0 && debug("lots")) {
       errprint("""--> Finished processing, number articles handled = %s/%s,
     skipped articles = %s, total tokens = %s/%s, incoming links = %s/%s""",
                this_num_arts_for_word_dist,
@@ -408,7 +405,7 @@ class RegionWordDist extends WordDist {
     }
   }
 
-  def add_locations(locs:Iterable[Article]) {
+  def add_locations(locs:Iterable[StatArticle]) {
     val arts = for (loc <- locs if loc.artmatch) yield loc.artmatch
     add_articles(arts)
   }
@@ -429,7 +426,7 @@ class RegionWordDist extends WordDist {
   // log probability log p(worddist|reg) using a Naive Bayes algorithm.
   def get_nbayes_logprob(worddist:WordDist) = {
     val logprob = 0.0
-    for ((word, count) <- worddist.counts.iteritems()) {
+    for ((word, count) <- worddist.counts) {
       val value = lookup_word(word)
       if (value <= 0) {
         // FIXME: Need to figure out why this happens (perhaps the word was
@@ -443,16 +440,7 @@ class RegionWordDist extends WordDist {
     // FIXME: Also use baseline (prior probability)
     logprob
   }
-
- def incoming_links_or_zero = {
-   incoming_links match {
-     case Some(x) => x
-     case None => 0
-   }
- }
- def get_adjusted_incoming_links = adjust_incoming_links(incoming_links)
 }
-
 
 /////////////////////////////////////////////////////////////////////////////
 //                             Region distributions                        //
@@ -470,7 +458,8 @@ class RegionWordDist extends WordDist {
 //   regionprobs: Hash table listing probabilities associated with regions
 
 class RegionDist(word:String=null,
-                 regionprobs:Map[Region, Double]=Map[Region, Double]()) {
+                 regionprobs:Map[StatRegion, Double]=
+                   Map[StatRegion, Double]()) {
   var normalized = false
   import KMLConstants._
 
@@ -496,7 +485,7 @@ class RegionDist(word:String=null,
     // ensure that 0 probabilities don't exist?  Anything else I missed?)
     if (totalprob != 0) {
       normalized = true
-      for ((reg, prob) <- regionprobs.iteritems())
+      for ((reg, prob) <- regionprobs)
         regionprobs(reg) /= totalprob
     }
     else
@@ -511,16 +500,16 @@ class RegionDist(word:String=null,
   }
   // Convert region to a KML file showing the distribution
   def generate_kml_file(filename:String) {
-    val xform = if (Opts.kml_transform == "log") x => log(x)
-      else if (Opts.kml_transform == "logsquared") x => -log(x)*log(x)
-      else x => x
+    val xform = if (Opts.kml_transform == "log") (x:Double) => log(x)
+      else if (Opts.kml_transform == "logsquared") (x:Double) => -log(x)*log(x)
+      else (x:Double) => x
 
     val minxformprob = xform(regionprobs.values min)
     val maxxformprob = xform(regionprobs.values max)
 
     // Generate KML for a single region
     def one_reg_kml(reg:StatRegion, prob:Double) = {
-      val (latind, longind) = (reg.latind, reg.longind)
+      val (latind, longind) = (reg.latind.get, reg.longind.get)
       val offprob = xform(prob) - minxformprob
       val fracprob = offprob / (maxxformprob - minxformprob)
       val swcoord = stat_region_indices_to_near_corner_coord(latind, longind)
@@ -544,10 +533,10 @@ class RegionDist(word:String=null,
           <name>{name}</name>,
           <Region>
             <LatLonAltBox>
-              <north>((center.lat + necoord.lat) / 2).toString</north>
-              <south>((center.lat + swcoord.lat) / 2).toString</south>
-              <east>((center.long + necoord.long) / 2).toString</east>
-              <west>((center.long + swcoord.long) / 2).toString</west>
+              <north>{((center.lat + necoord.lat) / 2).toString}</north>
+              <south>{((center.lat + swcoord.lat) / 2).toString}</south>
+              <east>{((center.long + necoord.long) / 2).toString}</east>
+              <west>{((center.long + swcoord.long) / 2).toString}</west>
             </LatLonAltBox>
             <Lod>
               <minLodPixels>16</minLodPixels>
@@ -699,15 +688,19 @@ object RegionDist {
 //                    statistical region.
 //   worddist: Distribution corresponding to region.
 
-class StatRegion(latind:Int, longind:Int) {
+class StatRegion(
+    val latind:Option[Int],
+    val longind:Option[Int]) {
   val worddist = RegionWordDist()
   val most_popular_article:Article = null
   val mostpopart_links = 0
 
   def boundstr() = {
-    if (latind != null) {
-      val near = stat_region_indices_to_near_corner_coord(latind, longind)
-      val far = stat_region_indices_to_far_corner_coord(latind, longind)
+    if (!latind.isEmpty) {
+      val near =
+        stat_region_indices_to_near_corner_coord(latind.get, longind.get)
+      val far =
+        stat_region_indices_to_far_corner_coord(latind.get, longind.get)
       "%s-%s" format (near, far)
     }
     else "nowhere"
@@ -739,26 +732,24 @@ class StatRegion(latind:Int, longind:Int) {
     str
   }
 
-  def struct() = {
-    val foo = mutable.Seq[Any]("StatRegion")
-    foo :+= ("bounds", boundstr())
-    if (!worddist.finished)
-      foo :+= ("finished", true)
-    if (most_popular_article) {
-      foo :+= ("most-popular-article", most_popular_article.struct())
-      foo :+= ("most-popular-article-links", mostpopart_links)
-    }
-    foo :+= ("num-articles-dist", worddist.num_arts_for_word_dist)
-    foo :+= ("num-articles-link", worddist.num_arts_for_links)
-    foo :+= ("incoming-links", worddist.incoming_links)
-    foo
-  }
+  def struct() =
+    <StatRegion>
+      <bounds>{boundstr()}</bounds>
+      <finished>{worddist.finished}</finished>
+      {if (most_popular_article != null)
+       (<mostPopularArticle>most_popular_article.struct()</mostPopularArticle>
+        <mostPopularArticleLinks>mostpopart_links</mostPopularArticleLinks>)
+      }
+      <numArticlesDist>{worddist.num_arts_for_word_dist}</numArticlesDist>
+      <numArticlesLink>{worddist.num_arts_for_links}</numArticlesLink>
+      <incomingLinks>{worddist.incomingLinks}</incomingLinks>
+    </StatRegion>
 
   // Generate the distribution for a statistical region from the tiling regions.
   def generate_dist() {
 
-    val reglat = latind
-    val reglong = longind
+    val reglat = latind.get
+    val reglong = longind.get
 
     if (debug("lots")) {
       errprint("Generating distribution for statistical region centered at %s",
@@ -767,7 +758,8 @@ class StatRegion(latind:Int, longind:Int) {
 
     // Accumulate counts for the given region
     def process_one_region(latind:Int, longind:Int) {
-      val arts = StatRegion.tiling_region_to_articles.getOrElse((latind, longind), null)
+      val arts =
+        StatRegion.tiling_region_to_articles.getOrElse((latind, longind), null)
       if (arts == null)
         return
       if (debug("lots")) {
@@ -812,13 +804,13 @@ object StatRegion {
   // articles in them, esp. as we decrease the region size.  The idea is that
   // the regions provide a first approximation to the regions used to create the
   // article distributions.
-  var tiling_region_to_articles = seqmap[String]()
+  var tiling_region_to_articles = genseqmap[(Int,Int),Article]()
 
   // Mapping from center of statistical region to corresponding region object.
   // A "statistical region" is made up of a square of tiling regions, with
   // the number of regions on a side determined by `Opts.width_of_stat_region'.  A
   // word distribution is associated with each statistical region.
-  val corner_to_stat_region = Map()
+  val corner_to_stat_region = Map[(Int,Int),StatRegion]()
 
   var empty_stat_region:StatRegion = null // Can't compute this until class is initialized
   var all_regions_computed = false
@@ -846,12 +838,12 @@ object StatRegion {
         return null
       if (all_regions_computed) {
         if (!empty_stat_region) {
-          empty_stat_region = new StatRegion(null, null)
+          empty_stat_region = new StatRegion(None, None)
           empty_stat_region.worddist.finish()
         }
         return empty_stat_region
       }
-      statreg = new StatRegion(latind, longind)
+      statreg = new StatRegion(Some(latind), Some(longind))
       statreg.generate_dist()
       val empty = statreg.worddist.is_empty()
       if (empty)
@@ -972,19 +964,14 @@ class Locality(
         name, div && div.path.mkString("/"))
   }
 
-  def struct(no_article:Boolean=false) = {
-    var foo = mutable.Seq[Any]("Locality")
-    foo :+= ("name", name)
-    foo :+= ("in division", div && div.path.mkString("/"))
-    foo :+= ("at coordinate", coord)
-    if (!no_article) {
-      if (artmatch)
-        foo :+= ("matching", artmatch.struct())
-      else
-        foo :+= ("matching", "none")
-    }
-    foo
-  }
+  def struct(no_article:Boolean=false) =
+    <Locality>
+      <name>{name}</name>
+      <inDivision>{if (div != null) div.path.mkString("/") else ""}</inDivision>
+      <atCoordinate>{coord}</atCoordinate>
+      {if (!no_article)
+        <matching>{if (artmatch) artmatch.struct() else "none"}</matching>}
+    </Locality>
 
   def distance_to_coord(coord:Coord) = spheredist(coord, coord)
 
@@ -1037,19 +1024,14 @@ class Division(path:String) extends Location(
       if (level > 1) " (%s)" format (path.mkString("/")) else "")
   }
 
-  def struct(no_article:Boolean=false) = {
-    var foo = mutable.Seq[Any]("Division")
-    foo :+= ("name", name)
-    foo :+= ("path", path.mkString("/"))
-    if (!no_article) {
-      if (artmatch)
-        foo :+= ("matching", artmatch.struct())
-      else
-        foo :+= ("matching", "none")
-    }
-    foo :+= ("boundary", boundary.struct())
-    foo
-  }
+  def struct(no_article:Boolean=false) =
+    <Division>
+      <name>{name}</name>
+      <path>{path.mkString("/")}</path>
+      {if (!no_article)
+        <matching>{if (artmatch) artmatch.struct() else "none"}</matching>}
+      <boundary>{boundary.struct()}</boundary>
+    </Division>
 
   def distance_to_coord(coord:Coord) = "Unknown"
 
@@ -1150,7 +1132,7 @@ object Division {
   // Divisions).
   def finish_all() {
     val divs_by_area = mutable.Seq[(Division, Double)]()
-    for (division <- path_to_division.itervalues()) {
+    for (division <- path_to_division.values) {
       if (debug("lots")) {
         errprint("Processing division named %s, path %s",
                  division.name, division.path)
@@ -1203,24 +1185,24 @@ object ArticleTable {
   // comma, the short name is the same as the article name.  The idea is that
   // the short name should be the same as one of the toponyms used to refer to
   // the article.
-  val short_lower_name_to_articles = seqmap[String]()
+  val short_lower_name_to_articles = seqmap[Article]()
 
   // Map from tuple (NAME, DIV) for Wikipedia articles of the form
   // "Springfield, Ohio", lowercased.
-  val lower_name_div_to_articles = seqmap[String]()
+  val lower_name_div_to_articles = seqmap[Article]()
 
   // Mapping from article names to Article objects, using the actual case of
   // the article.
-  val name_to_article = {}
+  val name_to_article = Map[String,Article]()
 
   // For each toponym, list of Wikipedia articles matching the name.
-  val lower_toponym_to_article = seqmap[String]()
+  val lower_toponym_to_article = seqmap[Article]()
 
   // Mapping from lowercased article names to Article objects
-  val lower_name_to_articles = seqmap[String]()
+  val lower_name_to_articles = seqmap[Article]()
 
   // List of articles in each split.
-  val articles_by_split = seqmap[String]()
+  val articles_by_split = seqmap[Article]()
 
   // Num of articles with word-count information but not in table.
   val num_articles_with_word_counts_but_not_in_table = 0
@@ -1276,7 +1258,7 @@ object ArticleTable {
     record_article_name(artfrom.title, artto)
     val redir = !(artfrom eq artto)
     val split = artto.split
-    val fromlinks = artfrom.incoming_links_or_zero
+    val fromlinks = artfrom.get_adjusted_incoming_links
     incoming_links_by_split(split) += fromlinks
     if (!redir) {
       articles_by_split(split) :+= artto
@@ -1285,13 +1267,13 @@ object ArticleTable {
       // Add count of links pointing to a redirect to count of links
       // pointing to the article redirected to, so that the total incoming
       // link count of an article includes any redirects to that article.
-      artto.incoming_links = Some(artto.incoming_links_or_zero + fromlinks)
+      artto.incoming_links = Some(artto.get_adjusted_incoming_links + fromlinks)
     }
   }
 
   def finish_article_distributions() {
     // Figure out the value of OVERALL_UNSEEN_MASS for each article.
-    for ((split, table) <- articles_by_split.iteritems()) {
+    for ((split, table) <- articles_by_split) {
       val totaltoks = 0
       val numarts = 0
       for (art <- table) {
@@ -1494,24 +1476,26 @@ class StatArticle(params:Map[String,String]) extends Article(params) {
     str
   }
 
-  def struct() = {
-    var foo = mutable.Seq[Any]("StatArticle")
-    foo :+= ("title", title)
-    foo :+= ("id", id)
-    if (coord)
-      foo :+= ("location", coord)
-    if (location)
-      foo :+= ("matching", location.struct(no_article=true))
-    if (redir)
-      foo :+= ("redirect to", redir.struct())
-    val divs = find_covering_divisions()
-    val top_divs = (for (div <- divs if div.level == 1) yield div.struct(no_article=true))
-    if (top_divs != null)
-      foo :+= ("top level divisions", top_divs)
-    else
-      foo :+= ("top level divisions", "none")
-    foo
-  }
+  def struct() =
+    <StatArticle>
+      <title>{title}</title>
+      <id>{id}</id>
+      {if (coord != null)
+         <location>{coord}</location>}
+      {if (location != null)
+         <matching>{location.struct(no_article=true)}</matching>}
+      {if (redir != null)
+         <redirectTo>{redir.struct()}</redirectTo>}
+      {
+       val divs = find_covering_divisions()
+       val top_divs = (for (div <- divs if div.level == 1)
+                       yield div.struct(no_article=true))
+       if (top_divs != null)
+         <topLevelDivisions>{top_divs}</topLevelDivisions>
+       else
+         <topLevelDivisions>none</topLevelDivisions>
+      }
+    </StatArticle>
 
   def distance_to_coord(coord:Coord) = spheredist(coord, coord)
 
@@ -1603,7 +1587,7 @@ class Eval(incorrect_reasons:Map[String,String]) {
   }
 
   def output_other_stats() {
-    for ((ty, count) <- other_stats.iteritems())
+    for ((ty, count) <- other_stats)
       errprint("%s = %s", ty, count)
   }
 
@@ -2467,7 +2451,7 @@ class WikipediaGeotagToponymEvaluator(
 }
 
 abstract class GeotagDocumentStrategy {
-  def return_ranked_regions(worddist:WordDist)
+  def return_ranked_regions(worddist:WordDist):Iterable[(StatRegion,Double)]
 }
 
 class BaselineGeotagDocumentStrategy(
@@ -2533,11 +2517,11 @@ class BaselineGeotagDocumentStrategy(
       for {(cand, links) <- candlinks
             val reg = {
               val retval = StatRegion.find_region_for_coord(cand.coord)
-              if (retval.latind == null)
+              if (retval.latind == None)
                 errprint("Strange, found no region for candidate %s", cand)
               retval
             }
-            if (reg.latind != null)
+            if (reg.latind != None)
           } yield (reg, links)
     }
 
@@ -2585,7 +2569,7 @@ class KLDivergenceStrategy(
   def return_ranked_regions(worddist:WordDist) = {
     val article_pq = PriorityQueue()
     for (stat_region <- StatRegion.iter_nonempty_regions(nonempty_word_dist=true)) {
-      val inds = (stat_region.latind, stat_region.longind)
+      val inds = (stat_region.latind.get, stat_region.longind.get)
       if (debug("lots")) {
         val (latind, longind) = inds
         val coord = region_indices_to_coord(latind, longind)
@@ -2651,7 +2635,7 @@ class CosineSimilarityStrategy(
   def return_ranked_regions(worddist:WordDist) = {
     val article_pq = PriorityQueue()
     for (stat_region <- StatRegion.iter_nonempty_regions(nonempty_word_dist=true)) {
-      val inds = (stat_region.latind, stat_region.longind)
+      val inds = (stat_region.latind.get, stat_region.longind.get)
       if (debug("lots")) {
         val (latind, longind) = inds
         val coord = region_indices_to_coord(latind, longind)
@@ -2815,7 +2799,7 @@ class WikipediaGeotagDocumentEvaluator(
     var broken = false
     breakable {
       for ((reg, value) <- regs) {
-        if (reg.latind == true_latind && reg.longind == true_longind) {
+        if (reg.latind.get == true_latind && reg.longind.get == true_longind) {
           broken = true
           break
         }
@@ -2826,7 +2810,8 @@ class WikipediaGeotagDocumentEvaluator(
       rank = 1000000000
     val want_indiv_results = !Opts.no_individual_results
     val stats = results.record_geotag_document_result(rank, article.coord,
-        regs(0)(0).latind, regs(0)(0).longind, num_arts_in_true_region=naitr,
+        regs(0)(0).latind.get, regs(0)(0).longind.get,
+        num_arts_in_true_region=naitr,
         return_stats=want_indiv_results)
     if (naitr == 0) {
       results.record_geotag_document_other_stat(
@@ -2850,16 +2835,17 @@ class WikipediaGeotagDocumentEvaluator(
       if (debug("gridrank") ||
           (debuglist("gridrank") contains doctag.drop(1))) {
         val grsize = debugval("gridranksize").toInt
-        val min_latind = true_latind - grsize // 2
+        val min_latind = true_latind - grsize / 2
         val max_latind = min_latind + grsize - 1
-        val min_longind = true_longind - grsize // 2
+        val min_longind = true_longind - grsize / 2
         val max_longind = min_longind + grsize - 1
-        val grid = {}
+        val grid = Map[(Int, Int), (StatRegion, Double, Int)]
         rank = 1
         for ((reg, value) <- regs) {
-          if ((reg.latind >= min_latind && reg.latind <= max_latind &&
-              reg.longind >= min_longind && reg.longind <= max_longind))
-            grid((reg.latind,reg.longind)) = (reg, value, rank)
+          val (la, lo) = (reg.latind.get, reg.longind.get)
+          if (la >= min_latind && la <= max_latind &&
+              lo >= min_longind && lo <= max_longind)
+            grid((la, lo)) = (reg, value, rank)
           rank += 1
         }
 
@@ -2949,7 +2935,7 @@ class PCLTravelGeotagDocumentEvaluator(
       val (reg, vall) = regval
       if (debug("struct")) {
         errprint("  Rank %d, goodness %g:", rank, vall)
-        print_structure(reg.struct(), indent=4)
+        errprint(reg.struct()) // indent=4
       } else
         errprint("  Rank %d, goodness %g: %s", rank, vall, reg.shortstr())
     }
@@ -3133,7 +3119,7 @@ object ProcessFiles {
     val total_arts_in_table = 0
     val total_arts_with_word_counts = 0
     val total_arts_with_dists = 0
-    for ((split, totaltoks) <- ArticleTable.word_tokens_by_split.iteritems()) {
+    for ((split, totaltoks) <- ArticleTable.word_tokens_by_split) {
       errprint("For split '%s':", split)
       val arts_in_table = ArticleTable.articles_by_split(split).length
       val arts_with_word_counts = ArticleTable.num_word_count_articles_by_split(split)
@@ -3643,7 +3629,7 @@ Possibilities are 'none' (no transformation), 'log' (take the log), and
       help="Output debug info of the given types (separated by spaces or commas)")
 }
 
-object WikiDisambigProgram extends NLPApp {
+object WikiDisambigProgram extends NLPProgram {
   val opts = Opts
   val op = Opts.op
 

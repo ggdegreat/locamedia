@@ -2,17 +2,14 @@ package opennlp.locamedia
 
 import NlpUtil._
 import util.control.Breaks._
+import java.io._
+import io.Source
 
 /////////////////////////////////////////////////////////////////////////////
 //                                  Main code                               //
 /////////////////////////////////////////////////////////////////////////////
 
 object ArticleData {
-  val minimum_latitude = -90.0
-  val maximum_latitude = 90.0
-  val minimum_longitude = -180.0
-  val maximum_longitude = 180.0 - 1e-10
-
   val combined_article_data_outfields = List("id", "title", "split", "redir",
       "namespace", "is_list_of", "is_disambig", "is_list", "coord",
       "incoming_links")
@@ -25,16 +22,16 @@ object ArticleData {
   def read_article_data_file(filename:String, process:Map[String,String]=>Unit,
                              maxtime:Double=0.0) = {
     errprint("Reading article data from %s...", filename)
-    val status = StatusMessage("article")
+    val status = new StatusMessage("article")
 
     val fi = Source.fromFile(filename).getLines()
     val fields = fi.next().split('\t')
     for (line <- fi) breakable {
       val fieldvals = line.split('\t')
-      if (fieldvals.length != field_types.length)
+      if (fieldvals.length != fields.length)
         warning(
         """Strange record at line #%s, expected %s fields, saw %s fields;
-    skipping line=%s""", status.num_processed(), field_types.length,
+    skipping line=%s""", status.num_processed(), fields.length,
                          fieldvals.length, line)
       else
         process((fields zip fieldvals).toMap)
@@ -46,7 +43,7 @@ object ArticleData {
     fields
   }
 
-  def write_article_data_file(outfile:File, outfields:Seq[String], articles:Iterable[Article]) {
+  def write_article_data_file(outfile:PrintStream, outfields:Seq[String], articles:Iterable[Article]) {
     uniprint(outfields mkString "\t", outfile=outfile)
     for (art <- articles)
       uniprint(art.get_fields(outfields) mkString "\t", outfile=outfile)
@@ -61,9 +58,10 @@ object ArticleData {
 //   lat, long: Latitude and longitude of coordinate.
 
 case class Coord(lat:Double, long:Double) {
+  import Coord._
   // Not sure why this code was implemented with coerce_within_bounds,
   // but either always coerce, or check the bounds ...
-  require(lat >= mininum_latitude)
+  require(lat >= minimum_latitude)
   require(lat <= maximum_latitude)
   require(long >= minimum_longitude)
   require(long <= maximum_longitude)
@@ -71,6 +69,11 @@ case class Coord(lat:Double, long:Double) {
 }
 
 object Coord {
+  val minimum_latitude = -90.0
+  val maximum_latitude = 90.0
+  val minimum_longitude = -180.0
+  val maximum_longitude = 180.0 - 1e-10
+
   //// If coerce_within_bounds=true, then force the values to be within
   //// the allowed range, by wrapping longitude and bounding latitude.
   def apply(lat:Double, long:Double, coerce_within_bounds:Boolean) = {
@@ -111,6 +114,7 @@ class Article(params:Map[String,String]) {
   var is_list_of=false
   var is_disambig=false
   var is_list=false
+  import Article._, ArticleConverters._
 
   for ((name, v) <- params) {
     name match {
@@ -145,8 +149,8 @@ class Article(params:Map[String,String]) {
   }
 
   def toString() = {
-    val coordstr = if (coord) " at %s".format(coord) else ""
-    val redirstr = if (redir) ", redirect to %s".format(redir) else ""
+    val coordstr = if (coord != null) " at %s".format(coord) else ""
+    val redirstr = if (redir != null) ", redirect to %s".format(redir) else ""
     "%s(%s)%s%s".format(title, id, coordstr, redirstr)
   }
 
@@ -174,13 +178,13 @@ object Article {
     else links
   }
 
-  def adjust_incoming_links(incoming_links: Option[Int]) = {
+  def adjust_incoming_links(incoming_links: Option[Int]):Double = {
     val ail =
       incoming_links match {
         case None => {
           if (debug("some"))
-            warning("Strange, %s has no link count", obj)
-          0
+            warning("Strange, object has no link count")
+          0.0
         }
         case Some(il) => {
           if (debug("some"))
@@ -190,9 +194,10 @@ object Article {
       }
     adjust_incoming_links(ail)
   }
+}
 
-  /************************ Conversion functions ************************/
-
+/************************ Conversion functions ************************/
+object ArticleConverters {
   def yesno_to_boolean(foo:String)  = {
     foo match {
       case "yes" => true

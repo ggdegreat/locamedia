@@ -4,6 +4,8 @@ import collection.mutable
 import collection.mutable.{Builder, MapBuilder}
 import collection.generic.CanBuildFrom
 import java.io._
+import java.util.Date
+import io.Source
 
 // from __future__ import with_statement // For chompopen(), uchompopen()
 // from optparse import OptionParser
@@ -299,12 +301,10 @@ object NlpUtil {
   }
   
   def uniprint(text:String, outfile:PrintStream=System.out) {
-    // FIXME!! Print to the given outfile.
-    println(text)
+    outfile.println(text)
   }
   def uniout(text:String, outfile:PrintStream=System.out) {
-    // FIXME!! Print to the given outfile.
-    print(text)
+    outfile.print(text)
   }
   
   def errprint(format:String, args:Any*) {
@@ -329,7 +329,7 @@ object NlpUtil {
    */
   def safe_float(x:String) = {
     try {
-      x.toFloat
+      x.toDouble
     } catch {
       case _ => {
         val y = x.trim()
@@ -344,7 +344,7 @@ object NlpUtil {
    */
   def pluralize(word:String) = {
     val upper = word.last >= 'A' && word.last <= 'Z'
-    val lowerword = word.toLower()
+    val lowerword = word.toLowerCase()
     val ies_re = """.*[b-df-hj-np-tv-z]y$""".r
     val es_re = """.*([cs]h|[sx])$""".r
     lowerword match {
@@ -354,7 +354,7 @@ object NlpUtil {
       case es_re() =>
         if (upper) word + "ES"
         else word + "es"
-      _ =>
+      case _ =>
         if (upper) word + "S"
         else word + "s"
     }
@@ -680,7 +680,6 @@ object NlpUtil {
   // of the items being processed.  Every time an item is processed, call
   // item_processed()
   class StatusMessage(item_name:String, secs_between_output:Double=15) {
-    import NlpUtil._
     val plural_item_name = pluralize(item_name)
     var items_processed = 0
     val first_time = curtimesecs()
@@ -704,13 +703,13 @@ object NlpUtil {
         (curtime - first_time) toInt
       val last_elapsed_secs = (curtime - last_time).toInt
       if (last_elapsed_secs >= secs_between_output) {
-        // Rather than directly recording the time, round it down to the nearest
-        // multiple of secs_between_output; else we will eventually see something
-        // like 0, 15, 45, 60, 76, 91, 107, 122, ...
-        // rather than
-        // like 0, 15, 45, 60, 76, 90, 106, 120, ...
-        val rounded_elapsed = ((total_elapsed_secs / secs_between_output).toInt() *
-                           secs_between_output)
+        // Rather than directly recording the time, round it down to the
+        // nearest multiple of secs_between_output; else we will eventually
+        // see something like 0, 15, 45, 60, 76, 91, 107, 122, ...
+        // rather than like 0, 15, 45, 60, 76, 90, 106, 120, ...
+        val rounded_elapsed =
+          ((total_elapsed_secs / secs_between_output) *
+           secs_between_output)
         last_time = first_time + rounded_elapsed
         errprint("Elapsed time: %s minutes %s seconds, %s %s processed",
                  (total_elapsed_secs / 60).toInt, total_elapsed_secs % 60,

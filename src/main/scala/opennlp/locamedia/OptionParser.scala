@@ -29,7 +29,7 @@ package object optparse {
   }
 }
 
-class OptionParsingException(val message: String,
+class OptParseException(val message: String,
   val cause: Option[Throwable]) extends Exception(message) {
   if (cause != None)
     initCause(cause.get)
