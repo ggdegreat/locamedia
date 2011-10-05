@@ -911,7 +911,7 @@ object NlpUtil {
   object LRUCache extends {
     def empty[T,U] = new LRUCache[T,U]
 
-    def apply[U](kvs: (T,U)*): LRUCache[T,U] = {
+    def apply[T,U](kvs: (T,U)*): LRUCache[T,U] = {
       val m: LRUCache[T,U] = empty
       for (kv <- kvs) m += kv
        m
