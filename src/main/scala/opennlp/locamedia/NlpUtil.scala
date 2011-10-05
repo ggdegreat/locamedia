@@ -487,10 +487,10 @@ object NlpUtil {
   def genstringmap[T]() = gendefaultmap[T,String]("")
   def stringmap() = genstringmap[String]()
   // Similar but the default value is an empty collection.
-  def genseqmap[T,U]() = gendefaultmap[T,mutable.Seq[U]](mutable.Seq[U]())
-  def seqmap[T]() = genseqmap[String,T]()
+  def genbufmap[T,U]() = gendefaultmap[T,mutable.Buffer[U]](mutable.Buffer[U]())
+  def bufmap[T]() = genbufmap[String,T]()
   
-  //def seqmap[T]() = {
+  //def bufmap[T]() = {
   //  new HashMap[String, mutable.Seq[T]] {
   //      override def default(key: String) = mutable.Seq[T]()
   //  }

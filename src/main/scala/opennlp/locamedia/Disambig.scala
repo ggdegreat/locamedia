@@ -136,7 +136,7 @@ class Boundary(botleft:Coord, topright:Coord) {
   // Iterate over the regions that overlap the boundary.  If
   // 'nonempty_word_dist' is true, only yield regions with a non-empty
   // word distribution; else, yield all non-empty regions.
-  def iter_nonempty_tiling_regions() {
+  def iter_nonempty_tiling_regions() = {
     val (latind1, longind1) = coord_to_tiling_region_indices(botleft)
     val (latind2, longind2) = coord_to_tiling_region_indices(topright)
     for {i <- latind1 to latind2 view
@@ -613,7 +613,7 @@ object StatRegion {
   // articles in them, esp. as we decrease the region size.  The idea is that
   // the regions provide a first approximation to the regions used to create the
   // article distributions.
-  var tiling_region_to_articles = genseqmap[(Regind,Regind),StatArticle]()
+  var tiling_region_to_articles = genbufmap[(Regind,Regind),StatArticle]()
 
   // Mapping from center of statistical region to corresponding region object.
   // A "statistical region" is made up of a square of tiling regions, with
@@ -828,8 +828,8 @@ class Division(val path:Seq[String]) extends Location(
   path(path.length-1), Seq[String](), "unknown") {
   
   val level = path.length
-  var locs = Seq[Locality]()
-  var goodlocs = Seq[Locality]()
+  var locs = mutable.Buffer[Locality]()
+  var goodlocs = mutable.Buffer[Locality]()
   var boundary:Boundary = null
   var artmatch:StatArticle = null
   var worddist:RegionWordDist = null
@@ -848,7 +848,7 @@ class Division(val path:Seq[String]) extends Location(
       if (level > 1) " (%s)" format (path.mkString("/")) else "")
   }
 
-  def struct(no_article:Boolean=false) =
+  def struct(no_article:Boolean=false):xml.Elem =
     <Division>
       <name>{name}</name>
       <path>{path.mkString("/")}</path>
@@ -923,12 +923,12 @@ object Division {
   val path_to_division = mutable.Map[Seq[String], Division]()
 
   // For each tiling region, list of divisions that have territory in it
-  val tiling_region_to_divisions = genseqmap[(Regind,Regind), Division]()
+  val tiling_region_to_divisions = genbufmap[(Regind,Regind), Division]()
 
   // Find the division for a point in the division with a given path,
   // add the point to the division.  Create the division if necessary.
   // Return the corresponding Division.
-  def find_division_note_point(loc:Location, path:Seq[String]):Division = {
+  def find_division_note_point(loc:Locality, path:Seq[String]):Division = {
     val higherdiv = if (path.length > 1)
       // Also note location in next-higher division.
         find_division_note_point(loc, path.dropRight(1))
@@ -1016,24 +1016,24 @@ object ArticleTable {
   // comma, the short name is the same as the article name.  The idea is that
   // the short name should be the same as one of the toponyms used to refer to
   // the article.
-  val short_lower_name_to_articles = seqmap[StatArticle]()
+  val short_lower_name_to_articles = bufmap[StatArticle]()
 
   // Map from tuple (NAME, DIV) for Wikipedia articles of the form
   // "Springfield, Ohio", lowercased.
-  val lower_name_div_to_articles = seqmap[StatArticle]()
+  val lower_name_div_to_articles = bufmap[StatArticle]()
 
   // Mapping from article names to StatArticle objects, using the actual case of
   // the article.
   val name_to_article = mutable.Map[String,StatArticle]()
 
   // For each toponym, list of Wikipedia articles matching the name.
-  val lower_toponym_to_article = seqmap[StatArticle]()
+  val lower_toponym_to_article = bufmap[StatArticle]()
 
   // Mapping from lowercased article names to StatArticle objects
-  val lower_name_to_articles = seqmap[StatArticle]()
+  val lower_name_to_articles = bufmap[StatArticle]()
 
   // List of articles in each split.
-  val articles_by_split = seqmap[StatArticle]()
+  val articles_by_split = bufmap[StatArticle]()
 
   // Num of articles with word-count information but not in table.
   var num_articles_with_word_counts_but_not_in_table = 0
@@ -1889,9 +1889,9 @@ abstract class GeotagToponymStrategy {
 // Find each toponym explicitly mentioned as such and disambiguate it
 // (find the correct geographic location) using the "link baseline", i.e.
 // use the location with the highest number of incoming links.
-class BaselineGeotagToponymStrategy extends GeotagToponymStrategy {
-  val baseline_strategy = baseline_strategy
-
+class BaselineGeotagToponymStrategy(
+    val baseline_strategy:String
+  ) extends GeotagToponymStrategy {
   def need_context() = false
 
   def compute_score(geogword:GeogWord, art:StatArticle) = {
@@ -1919,7 +1919,9 @@ class BaselineGeotagToponymStrategy extends GeotagToponymStrategy {
 // Find each toponym explicitly mentioned as such and disambiguate it
 // (find the correct geographic location) using Naive Bayes, possibly
 // in conjunction with the baseline.
-class NaiveBayesToponymStrategy extends GeotagToponymStrategy {
+class NaiveBayesToponymStrategy(
+    val use_baseline:Boolean
+  ) extends GeotagToponymStrategy {
   val use_baseline = use_baseline
 
   def need_context() = true
@@ -1982,7 +1984,7 @@ abstract class GeotagToponymEvaluator(
   // Given an evaluation file, read in the words specified, including the
   // toponyms.  Mark each word with the "document" (e.g. article) that it's
   // within.
-  def iter_geogwords(filename:String)
+  def iter_geogwords(filename:String):Iterable[GeogWord]
 
   // Retrieve the words yielded by iter_geowords() and separate by "document"
   // (e.g. article); yield each "document" as a list of such GeogWord objects.
@@ -2183,9 +2185,9 @@ class TRCoNLLGeotagToponymEvaluator(
   def iter_geogwords(filename:String) = {
     var in_loc = false
     var wordstruct = null:GeogWord
-    def iter_1(lines:Iterator[String]) = {
+    def iter_1(lines:Iterator[String]):Stream[GeogWord] = {
       if (lines.hasNext) {
-        val line = line.next
+        val line = lines.next
         try {
           val ss = """\t""".r.split(line)
           require(ss.length == 2)
@@ -2239,13 +2241,13 @@ class WikipediaGeotagToponymEvaluator(
   strategy:GeotagToponymStrategy,
   stratname:String
   ) extends GeotagToponymEvaluator(strategy, stratname) {
-  def iter_geogwords(filename:String) {
+  def iter_geogwords(filename:String) = {
     var title = null
     val titlere = """Article title: (.*)$""".r
     val linkre = """Link: (.*)$""".r
-    def iter_1(lines:Iterator[String]) {
+    def iter_1(lines:Iterator[String]):Stream[GeogWord] = {
       if (lines.hasNext) {
-        val line = line.next
+        val line = lines.next
         line match {
           case titlere(mtitle) => {
             title = mtitle
@@ -2257,7 +2259,7 @@ class WikipediaGeotagToponymEvaluator(
             var linkword = trueart
             if (args.length > 1)
               linkword = args(1)
-            var word = new GeogWord(linkword)
+            val word = new GeogWord(linkword)
             word.is_toponym = true
             word.location = trueart
             word.document = title
@@ -2267,7 +2269,7 @@ class WikipediaGeotagToponymEvaluator(
             word #:: iter_1(lines)
           }
           case _ => {
-            word = new GeogWord(line)
+            val word = new GeogWord(line)
             word.document = title
             word #:: iter_1(lines)
           }
@@ -2995,11 +2997,11 @@ object ProcessFiles {
 object Gazetteer {
   // For each toponym (name of location), value is a list of Locality items,
   // listing gazetteer locations and corresponding matching Wikipedia articles.
-  val lower_toponym_to_location = seqmap[String]()
+  val lower_toponym_to_location = bufmap[Locality]()
 
   // For each toponym corresponding to a division higher than a locality,
   // list of divisions with this name.
-  val lower_toponym_to_division = seqmap[String]()
+  val lower_toponym_to_division = bufmap[Division]()
 
   // Table of all toponyms seen in evaluation files, along with how many times
   // seen.  Used to determine when caching of certain toponym-specific values
@@ -3660,10 +3662,10 @@ Not generating an empty KML file.""", word)
           if (stratname == "baseline") {
             for (basestratname <- Opts.baseline_strategy) yield
               ("baseline " + basestratname,
-                  BaselineGeotagToponymStrategy(basestratname))
+                  new BaselineGeotagToponymStrategy(basestratname))
           }
           else {
-            val strategy = NaiveBayesToponymStrategy(Opts,
+            val strategy = new NaiveBayesToponymStrategy(Opts,
                 use_baseline=(stratname == "naive-bayes-with-baseline"))
             Seq((stratname, strategy))
           }
@@ -3672,9 +3674,9 @@ Not generating an empty KML file.""", word)
       process_strategies(strats)((stratname, strategy) => {
         // Generate reader object
         if (Opts.eval_format == "tr-conll")
-          TRCoNLLGeotagToponymEvaluator(strategy, stratname)
+          new TRCoNLLGeotagToponymEvaluator(strategy, stratname)
         else
-          WikipediaGeotagToponymEvaluator(strategy, stratname)
+          new WikipediaGeotagToponymEvaluator(strategy, stratname)
       })
     } else if (Opts.mode == "geotag-documents") {
       val strats = (
@@ -3682,32 +3684,32 @@ Not generating an empty KML file.""", word)
           if (stratname == "baseline") {
             for (basestratname <- Opts.baseline_strategy) yield
               ("baseline " + basestratname,
-                  BaselineGeotagDocumentStrategy(basestratname))
+                  new BaselineGeotagDocumentStrategy(basestratname))
           }
           else {
             val strategy =
               if (stratname.startsWith("naive-bayes-"))
-                NaiveBayesDocumentStrategy(
+                new NaiveBayesDocumentStrategy(
                   use_baseline=(stratname == "naive-bayes-with-baseline"))
               else stratname match {
                 case "average-cell-probability" =>
-                  PerWordRegionDistributionsStrategy()
+                  new PerWordRegionDistributionsStrategy()
                 case "cosine-similarity" =>
-                  CosineSimilarityStrategy(smoothed=false, partial=false)
+                  new CosineSimilarityStrategy(smoothed=false, partial=false)
                 case "partial-cosine-similarity" =>
-                  CosineSimilarityStrategy(smoothed=false, partial=true)
+                  new CosineSimilarityStrategy(smoothed=false, partial=true)
                 case "smoothed-cosine-similarity" =>
-                  CosineSimilarityStrategy(smoothed=true, partial=false)
+                  new CosineSimilarityStrategy(smoothed=true, partial=false)
                 case "smoothed-partial-cosine-similarity" =>
-                  CosineSimilarityStrategy(smoothed=true, partial=true)
+                  new CosineSimilarityStrategy(smoothed=true, partial=true)
                 case "full-kl-divergence" =>
-                  KLDivergenceStrategy(symmetric=false, partial=false)
+                  new KLDivergenceStrategy(symmetric=false, partial=false)
                 case "partial-kl-divergence" =>
-                  KLDivergenceStrategy(symmetric=false, partial=true)
+                  new KLDivergenceStrategy(symmetric=false, partial=true)
                 case "symmetric-full-kl-divergence" =>
-                  KLDivergenceStrategy(symmetric=true, partial=false)
+                  new KLDivergenceStrategy(symmetric=true, partial=false)
                 case "symmetric-partial-kl-divergence" =>
-                  KLDivergenceStrategy(symmetric=true, partial=true)
+                  new KLDivergenceStrategy(symmetric=true, partial=true)
                 case "none" =>
                   null
               }
@@ -3721,9 +3723,9 @@ Not generating an empty KML file.""", word)
       process_strategies(strats)((stratname, strategy) => {
         // Generate reader object
         if (Opts.eval_format == "pcl-travel")
-          PCLTravelGeotagDocumentEvaluator(strategy, stratname)
+          new PCLTravelGeotagDocumentEvaluator(strategy, stratname)
         else
-          WikipediaGeotagDocumentEvaluator(strategy, stratname)
+          new WikipediaGeotagDocumentEvaluator(strategy, stratname)
       })
     }
   }

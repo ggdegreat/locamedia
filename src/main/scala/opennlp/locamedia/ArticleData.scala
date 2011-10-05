@@ -125,7 +125,7 @@ object Article {
   // division (e.g. "Tucson, Arizona"), return a tuple (SHORTFORM, DIVISION);
   // else return a tuple (SHORTFORM, None).
   
-  def compute_short_form(name: String) {
+  def compute_short_form(name: String) = {
     val includes_div_re = """(.*?), (.*)$""".r
     val includes_parentag_re = """(.*) \(.*\)$""".r
     name match {
