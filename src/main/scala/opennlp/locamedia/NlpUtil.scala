@@ -1,11 +1,15 @@
 package opennlp.locamedia
 
+import util.control.Breaks._
 import collection.mutable
 import collection.mutable.{Builder, MapBuilder}
 import collection.generic.CanBuildFrom
+import io.Source
+import Math._
 import java.io._
 import java.util.Date
-import io.Source
+
+import OptParse._
 
 // from __future__ import with_statement // For chompopen(), uchompopen()
 // from optparse import OptionParser
@@ -34,7 +38,7 @@ object NlpUtil {
   // a semicolon or colon.
   val debug = booleanmap()
   val debugval = stringmap()
-  val debuglist = listmap[String]()
+  val debuglist = bufmap[String]()
   
   var list_debug_params = Set[String]()
   
@@ -364,43 +368,44 @@ object NlpUtil {
    Capitalize the first letter of string, leaving the remainder alone.
    */
   def capfirst(st:String) = {
-    if (st == "") st else st(0).toString.capitalize() + st.drop(1)
+    if (st == "") st else st(0).toString.capitalize + st.drop(1)
   }
   
   // From: http://stackoverflow.com/questions/1823058/how-to-print-number-with-commas-as-thousands-separators-in-python-2-x
-  def int_with_commas(x:Int) = {
-    if (x < 0)
-      return "-" + int_with_commas(-x)
+  def long_with_commas(x:Long):String = {
+    var mx = x
+    if (mx < 0)
+      return "-" + long_with_commas(-mx)
     var result = ""
-    while (x >= 1000) {
-      r = x % 1000
-      x /= 1000
+    while (mx >= 1000) {
+      val r = mx % 1000
+      mx /= 1000
       result = ",%03d%s" format (r, result)
     }
-    return "%d%s" format (x, result)
+    return "%d%s" format (mx, result)
   }
   
   // My own version
   def float_with_commas(x:Double) = {
-    val intpart = int(math.floor(x))
+    val intpart = floor(x).toInt
     val fracpart = x - intpart
-    return int_with_commas(intpart) + ("%.2f" format fracpart).drop(1)
+    long_with_commas(intpart) + ("%.2f" format fracpart).drop(1)
   }
   
   def median(list:Seq[Double]) = {
     "Return the median value of a sorted list."
     var l = list.length
     if (l % 2 == 1)
-      return list(l / 2)
+      list(l / 2)
     else {
       l = l / 2
-      return 0.5*(list(l-1) + list(l))
+      0.5*(list(l-1) + list(l))
     }
   }
   
   def mean(list:Seq[Double]) = {
     "Return the mean of a list."
-    return (list.sum) / float(list.length)
+    list.sum / list.length
   }
   
   // A function to make up for a missing feature in Scala.  Split a text
@@ -413,7 +418,12 @@ object NlpUtil {
       for (m <- regex.findAllIn(text).matchData) yield List(m.start, m.end)
     val flattened = List(0) ++ (delim_intervals reduce (_ ++ _)) ++
       List(text.length, text.length)
-    val interval_texts = flattened.iterator.sliding(2) map (text.slice(_,_))
+    val interval_texts = flattened.iterator.sliding(2) map (
+        x => {
+          val Seq(y,z) = x
+          text.slice(y,z)
+        }
+      )
     interval_texts grouped 2
   }
 
@@ -426,9 +436,9 @@ object NlpUtil {
     // 'ignore_punc' is given.  Also, if 'include_nl' is given, newlines are
     // returned as their own words; otherwise, they are treated like all other
     // whitespace (i.e. ignored).
-    (for ((word, punc) <-
-         re_split_with_delimiter("""([,;."):]*\s+[("]*)""".r, text)) yield
-       List(word) ++ (
+    (for (Seq(word, punc) <-
+          re_split_with_delimiter("""([,;."):]*\s+[("]*)""".r, text)) yield
+       Seq(word) ++ (
          for (p <- punc; if !(" \t\r\f\013" contains p)) yield (
            if (p == '\n') (if (include_nl) p else "")
            else (if (!ignore_punc) p else "")
@@ -645,9 +655,10 @@ object NlpUtil {
   // stdout.  If 'indent' is specified, indent all rows by this string (usually
   // some number of spaces).  If 'maxrows' is specified, output at most this many
   // rows.
-  def output_reverse_sorted_list[T,U](items:Seq[(T,U)],
-    outfile:PrintStream=System.out, indent:String="",
-    keep_secondary_order:Boolean=false, maxrows:Int = -1) {
+  def output_reverse_sorted_list[T <% Ordered[T],U <% Ordered[U]](
+      items:Seq[(T,U)],
+      outfile:PrintStream=System.out, indent:String="",
+      keep_secondary_order:Boolean=false, maxrows:Int = -1) {
     var its = items
     if (!keep_secondary_order)
       its = its sortBy (_._1)
@@ -665,7 +676,8 @@ object NlpUtil {
   // output to this stream instead of stdout.  If 'indent' is specified, indent
   // all rows by this string (usually some number of spaces).  If 'maxrows'
   // is specified, output at most this many rows.
-  def output_reverse_sorted_table[T,U](table:Map[T,U],
+  def output_reverse_sorted_table[T <% Ordered[T],U <% Ordered[U]](
+    table:Map[T,U],
     outfile:PrintStream=System.out, indent:String="",
     keep_secondary_order:Boolean=false, maxrows:Int = -1) {
     output_reverse_sorted_list(table toList)
@@ -738,7 +750,7 @@ object NlpUtil {
   // the different split files; if the values are [1, 1.5, 1], the output
   // will be [1, 2, 3, 2, 1, 2, 3, ...]; etc.
   
-  def next_split_set(split_fractions:Seq[Double]) {
+  def next_split_set(split_fractions:Seq[Double]):Iterable[Int] = {
   
     val num_splits = split_fractions.length
     val cumulative_articles = mutable.Seq.fill(num_splits)(0.0)
@@ -759,8 +771,8 @@ object NlpUtil {
     // any fractional quantity (e.g. 0.6 for a value of 7.6) is left over,
     // any will ensure that the total ratios still work out appropriately.
  
-    def fuckme_no_yield() {
-      var yieldme = mutable.Seq[Int]()
+    def fuckme_no_yield():Stream[Int] = {
+      var yieldme = mutable.Buffer[Int]()
       for (j <- 0 until num_splits) {
         //println("j=%s, this_output=%s" format (j, this_output))
         if (cumulative_articles(j) < normalized_split_fractions(j)) {
@@ -776,6 +788,7 @@ object NlpUtil {
       }
       yieldme.toStream ++ fuckme_no_yield()
     }
+    fuckme_no_yield()
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -789,7 +802,7 @@ object NlpUtil {
     errprint("")
   }
   
-  abstract object NLPProgram extends App {
+  abstract class NLPProgram extends App {
     // Things that must be implemented
     val opts:AnyRef
     val op:OptionParser
@@ -887,8 +900,8 @@ object NlpUtil {
       if (cache contains key)
         reprioritize(key)
       else {
-        while (cache.length >= maxsize) {
-          val (key2, value) = cache.head()
+        while (cache.size >= maxsize) {
+          val (key2, value) = cache.head
           cache -= key2
         }
         cache(key) = value
@@ -921,9 +934,9 @@ object NlpUtil {
       new MapBuilder[T, U, LRUCache[T,U]](empty)
 
     implicit def canBuildFrom[T,U]
-      : CanBuildFrom[LRUCache[_], (T,U), LRUCache[T]] =
-        new CanBuildFrom[LRUCache[_], (T,U), LRUCache[T]] {
-          def apply(from: LRUCache[_]) = newBuilder[T,U]
+      : CanBuildFrom[LRUCache[T,U], (T,U), LRUCache[T,U]] =
+        new CanBuildFrom[LRUCache[T,U], (T,U), LRUCache[T,U]] {
+          def apply(from: LRUCache[T,U]) = newBuilder[T,U]
           def apply() = newBuilder[T,U]
         }
   }
@@ -945,8 +958,9 @@ object NlpUtil {
       else {
         try
           get_program_memory_usage_ps()
-        catch
-          get_program_memory_rusage()
+        catch {
+          case _ => get_program_memory_usage_rusage()
+        }
       }
     }
   }
@@ -964,27 +978,28 @@ object NlpUtil {
     // // values, but on the Mac at least they show up as 0 in this structure.
     // // On Linux, alas, all values show up as 0 or garbage (e.g. negative).
     // res.ru_maxrss
-    0
+    0L
   }
   
   // Get memory usage by running 'ps'; getrusage() doesn't seem to work very
   // well.  The following seems to work on both Mac OS X and Linux, at least.
-  def get_program_memory_usage_ps():Int = {
+  def get_program_memory_usage_ps():Long = {
     val pid = getpid()
     val input =
       capture_subprocess_output("ps", "-p", pid.toString, "-o", "rss")
-    val lines = re.split("""\n""", input)
+    val lines = input.split('\n')
     for (line <- lines if line.trim != "RSS")
-      return 1024*line.trim.toInt
+      return 1024*line.trim.toLong
+    0L
   }
   
   // Get memory usage by running 'proc'; this works on Linux and doesn't require
   // spawning a subprocess, which can crash when your program is very large.
-  def get_program_memory_usage_proc():Int = {
+  def get_program_memory_usage_proc():Long = {
     for (line <- uchompopen("proc/self/status")) {
         val trimline = line.trim
         if (trimline.startsWith("VmRSS:")) {
-          val rss = (trimline.split()(1)).toInt
+          val rss = ("""\s+""".r.split(trimline))(1).toLong
           return 1024*rss
         }
       }
@@ -993,9 +1008,9 @@ object NlpUtil {
   
   def format_minutes_seconds(seconds:Double) {
     var secs = seconds
-    var mins = (secs / 60) toInt
+    var mins = (secs / 60).toInt
     secs = secs % 60
-    val hours = (mins / 60) toInt
+    val hours = (mins / 60).toInt
     mins = mins % 60
     var hourstr = (
       if (hours > 0) "%s hour%s " format (hours, if (hours == 1) "" else "s")
@@ -1011,7 +1026,7 @@ object NlpUtil {
     errprint("Total elapsed time since program start: %s",
              format_minutes_seconds(get_program_time_usage()))
     errprint("Memory usage: %s bytes",
-        int_with_commas(get_program_memory_usage()))
+        long_with_commas(get_program_memory_usage()))
   }
 
   //////////////////////////////////////////////////////////////////////////////
@@ -1036,17 +1051,17 @@ object NlpUtil {
   // it iter_ranges() when returning the lower bound of the lowest range,
   // and can be an item of any type, e.g. the number 0, the string "-infinity",
   // etc.
-  abstract class TableByRange[Coll,Numtype](
+  abstract class TableByRange[Coll,Numtype <% Ordered[Numtype]](
     ranges:Seq[Numtype],
     create:()=>Coll
   ) {
     val min_value:Numtype
     val max_value:Numtype
-    val items_by_range = Map[Numtype,Coll]()
+    val items_by_range = mutable.Map[Numtype,Coll]()
     var seen_negative = false
   
     def get_collector(key:Numtype) = {
-      if (key < 0)
+      if (key < 0.asInstanceOf[Numtype])
         seen_negative = true
       var lower_range = min_value
       // upper_range = "infinity"
@@ -1082,11 +1097,11 @@ object NlpUtil {
      actually-seen ranges will be returned.
      */
     def iter_ranges(unseen_between:Boolean=true, unseen_all:Boolean=false) {
-      var highest_seen = null
+      var highest_seen:Numtype = 0.asInstanceOf[Numtype]
       val iteration_range =
         (List(if (seen_negative) min_value else 0.asInstanceOf[Numtype]) ++
           ranges) zip
-         (ranges ++ max_value)
+         (ranges ++ List(max_value))
       for ((lower, upper) <- iteration_range) {
         if (items_by_range contains lower)
           highest_seen = upper
@@ -1094,7 +1109,7 @@ object NlpUtil {
   
       var seen_any = false
       for {(lower, upper) <- iteration_range
-           val collector = items_by_range.get(lower, null)
+           val collector = items_by_range.getOrElse(lower, null)
            if (collector != null || unseen_all ||
                (unseen_between && seen_any &&
                 upper != max_value && upper <= highest_seen))
@@ -1108,7 +1123,7 @@ object NlpUtil {
   }
 
   class IntTableByRange[Coll](
-    ranges:Seq[Numtype],
+    ranges:Seq[Int],
     create:()=>Coll
   ) extends TableByRange[Coll,Int](ranges, create) {
     val min_value = java.lang.Integer.MIN_VALUE
@@ -1116,7 +1131,7 @@ object NlpUtil {
   }
 
   class DoubleTableByRange[Coll](
-    ranges:Seq[Numtype],
+    ranges:Seq[Double],
     create:()=>Coll
   ) extends TableByRange[Coll,Double](ranges, create) {
     val min_value = java.lang.Double.NEGATIVE_INFINITY

@@ -987,7 +987,7 @@ object Division {
       for (inds <- division.boundary.iter_nonempty_tiling_regions())
         tiling_region_to_divisions(inds) += division
       if (debug("region"))
-        divs_by_area += (division, division.boundary.square_area())
+        divs_by_area += ((division, division.boundary.square_area()))
     }
     if (debug("region")) {
       // sort by second element of tuple, in reverse order
@@ -1020,7 +1020,7 @@ object ArticleTable {
 
   // Map from tuple (NAME, DIV) for Wikipedia articles of the form
   // "Springfield, Ohio", lowercased.
-  val lower_name_div_to_articles = bufmap[StatArticle]()
+  val lower_name_div_to_articles = genbufmap[(String,Division), StatArticle]()
 
   // Mapping from article names to StatArticle objects, using the actual case of
   // the article.
@@ -1181,8 +1181,8 @@ object ArticleTable {
   // PREFER_MATCH are as above.  Return the article matched, or None.
 
   def find_wikipedia_match(loc:Location,
-        check_match:(Location, String)=>Boolean,
-        prefer_match:(Location, String, String)=>Boolean):StatArticle = {
+        check_match:(Location, StatArticle)=>Boolean,
+        prefer_match:(Location, StatArticle, StatArticle)=>Boolean):StatArticle = {
     // Try to find a match for the canonical name of the location
     val artmatch = find_one_wikipedia_match(loc, loc.name, check_match,
                                             prefer_match)
@@ -1230,7 +1230,7 @@ object ArticleTable {
 
     def check_match(loc:Location, art:StatArticle) = {
       val div = loc.asInstanceOf[Division]
-      if (art.coord != null && div contains art.coord) true
+      if (art.coord != null && (div contains art.coord)) true
       else {
         if (debug("lots")) {
           if (art.coord == null) {
