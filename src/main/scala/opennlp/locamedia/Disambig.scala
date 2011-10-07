@@ -455,7 +455,7 @@ object RegionDist {
       cached_dists = new LRUCache(maxsize = Opts.lru_cache_size)
     cached_dists.get(word) match {
       case Some(dist) => dist
-      case null => {
+      case None => {
         val dist = new RegionDist(word)
         cached_dists(word) = dist
         dist
@@ -1504,7 +1504,7 @@ class EvalWithRank(max_rank_for_credit: Int = 10) extends Eval(
       incorrect_past_max_rank += 1
   }
 
-  def output_correct_results() {
+  override def output_correct_results() {
     super.output_correct_results()
     val possible_credit = max_rank_for_credit * total_instances
     output_fraction("Percent correct with partial credit",
@@ -1817,6 +1817,16 @@ abstract class TestFileEvaluator(stratname: String) {
     var last_processed = 0
     var skip_initial = Opts.skip_initial_test_docs
     var skip_n = 0
+
+    def output_final_results() {
+      errprint("")
+      errprint("Final results for strategy %s: All %d documents processed:",
+        stratname, status.num_processed())
+      errprint("Ending operation at %s", curtimehuman())
+      output_results(isfinal = true)
+      errprint("Ending final results for strategy %s", stratname)
+    }
+
     for (filename <- files) {
       errprint("Processing evaluation file %s...", filename)
       for (doc <- iter_documents(filename)) {
@@ -1869,15 +1879,6 @@ abstract class TestFileEvaluator(stratname: String) {
     }
 
     output_final_results()
-
-    def output_final_results() {
-      errprint("")
-      errprint("Final results for strategy %s: All %d documents processed:",
-        stratname, status.num_processed())
-      errprint("Ending operation at %s", curtimehuman())
-      output_results(isfinal = true)
-      errprint("Ending final results for strategy %s", stratname)
-    }
   }
 }
 
@@ -2825,6 +2826,9 @@ object ProcessFiles {
       writer.output_header()
     }
 
+    var total_tokens = 0
+    var title = null: String
+
     def one_article_probs() {
       if (total_tokens == 0) return
       val art = ArticleTable.lookup_article(title)
@@ -2847,9 +2851,7 @@ object ProcessFiles {
 
     errprint("Reading word counts from %s...", filename)
     val status = new StatusMessage("article")
-    var total_tokens = 0
 
-    var title = null: String
     // Written this way because there's another line after the for loop,
     // corresponding to the else clause of the Python for loop
     breakable {

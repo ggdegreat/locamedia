@@ -123,7 +123,7 @@ add the word counts to the global word count statistics.
     counts = wordhash
   }
 
-  def toString = {
+  override def toString = {
     val finished_str =
       if (!finished) ", unfinished" else ""
     val num_words_to_print = 15

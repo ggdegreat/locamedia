@@ -123,7 +123,7 @@ class Article(params:Map[String,String]) {
     }
   }
 
-  def toString() = {
+  override def toString() = {
     val coordstr = if (coord != null) " at %s".format(coord) else ""
     val redirstr = if (redir != null) ", redirect to %s".format(redir) else ""
     "%s(%s)%s%s".format(title, id, coordstr, redirstr)

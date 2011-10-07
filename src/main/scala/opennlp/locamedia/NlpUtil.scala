@@ -501,7 +501,7 @@ object NlpUtil {
   // adding an element to the vector associated with one key will also add
   // it to the vectors for other keys, which is not what we want.
   def gendefaultmap[F,T](defaultval: => T) = {
-    new mutable.Map[F,T] {
+    new mutable.HashMap[F,T] {
       override def default(key:F) = defaultval
     }
   } 
@@ -1070,7 +1070,7 @@ object NlpUtil {
   // it iter_ranges() when returning the lower bound of the lowest range,
   // and can be an item of any type, e.g. the number 0, the string "-infinity",
   // etc.
-  abstract class TableByRange[Coll <: AnyRef,Numtype <% Ordered[Numtype]](
+  abstract class TableByRange[Coll,Numtype <% Ordered[Numtype]](
     ranges:Seq[Numtype],
     create:()=>Coll
   ) {
@@ -1257,8 +1257,18 @@ object NlpUtil {
     val br = new BufferedReader(new InputStreamReader(in))
     val cbuf = new Array[Char](100)
     var numread = 0
-    while ((numread = br.read(cbuf, 0, cbuf.length)) != -1)
-      output.append(cbuf, 0, numread)
+    /* SCALABUG: The following compiles but will give incorrect results because
+       the result of an assignment is Unit! (You do get a warning but ...)
+     
+     while ((numread = br.read(cbuf, 0, cbuf.length)) != -1)
+       output.appendAll(cbuf, 0, numread)
+
+     */
+    numread = br.read(cbuf, 0, cbuf.length)
+    while (numread != -1) {
+      output.appendAll(cbuf, 0, numread)
+      numread = br.read(cbuf, 0, cbuf.length)
+    }
     proc.waitFor()
     in.close()
     output.toString

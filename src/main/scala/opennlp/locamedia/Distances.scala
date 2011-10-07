@@ -1,6 +1,6 @@
 package opennlp.locamedia
 
-import Math._
+import math._
 import NlpUtil.warning
 
 object Distances {
