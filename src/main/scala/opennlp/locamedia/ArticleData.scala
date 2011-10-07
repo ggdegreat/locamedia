@@ -10,6 +10,16 @@ import io.Source
 //                                  Main code                               //
 /////////////////////////////////////////////////////////////////////////////
 
+class ArticleWriter(outfile:PrintStream, outfields:Seq[String]) {
+  def output_header() {
+    outfile.println(outfields mkString "\t")
+  }
+  
+  def output_row(art:Article) {
+    outfile.println(art.get_fields(outfields) mkString "\t")    
+  }
+}
+
 object ArticleData {
   val combined_article_data_outfields = List("id", "title", "split", "redir",
       "namespace", "is_list_of", "is_disambig", "is_list", "coord",
@@ -44,10 +54,12 @@ object ArticleData {
     fields
   }
 
-  def write_article_data_file(outfile:PrintStream, outfields:Seq[String], articles:Iterable[Article]) {
-    uniprint(outfields mkString "\t", outfile=outfile)
+  def write_article_data_file(outfile:PrintStream, outfields:Seq[String],
+      articles:Iterable[Article]) {
+    val writer = new ArticleWriter(outfile, outfields)
+    writer.output_header()
     for (art <- articles)
-      uniprint(art.get_fields(outfields) mkString "\t", outfile=outfile)
+      writer.output_row(art)
     outfile.close()
   }
 }
@@ -117,7 +129,7 @@ class Article(params:Map[String,String]) {
     "%s(%s)%s%s".format(title, id, coordstr, redirstr)
   }
 
- def get_adjusted_incoming_links = adjust_incoming_links(incoming_links)
+ def adjusted_incoming_links = adjust_incoming_links(incoming_links)
 }
 
 object Article {
@@ -135,19 +147,19 @@ object Article {
     }
   }
 
-  def adjust_incoming_links(links: Double) = {
+  def log_adjust_incoming_links(links: Int) = {
     if (links == 0) // Whether from unknown count or count is actually zero
       0.01 // So we don't get errors from log(0)
     else links
   }
 
-  def adjust_incoming_links(incoming_links: Option[Int]):Double = {
+  def adjust_incoming_links(incoming_links: Option[Int]) = {
     val ail =
       incoming_links match {
         case None => {
           if (debug("some"))
             warning("Strange, object has no link count")
-          0.0
+          0
         }
         case Some(il) => {
           if (debug("some"))
@@ -155,7 +167,7 @@ object Article {
           il
         }
       }
-    adjust_incoming_links(ail)
+    ail
   }
 }
 

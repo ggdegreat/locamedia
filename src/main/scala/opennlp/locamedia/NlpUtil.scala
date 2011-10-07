@@ -54,6 +54,10 @@ object NlpUtil {
 
   def curtimehuman() = (new Date()) toString
 
+  // This stuff sucks.  Need to create new Print streams to get the expected
+  // UTF-8 output, since the existing System.out/System.err streams don't do it!
+  val stdout_stream = new PrintStream(System.out, true, "UTF-8") 
+  val stderr_stream = new PrintStream(System.err, true, "UTF-8") 
   import java.lang.management._
   def getpid() = ManagementFactory.getRuntimeMXBean().getName().split("@")(0)
   /*
@@ -209,7 +213,7 @@ object NlpUtil {
   // "chomp" in Perl).  Basically same as gopen() but with defaults set
   // differently.
   def uchompopen(filename:String=null, mode:String="r",
-        encoding:String="utf-8", errors:String="strict", chomp:Boolean=true,
+        encoding:String="UTF-8", errors:String="strict", chomp:Boolean=true,
         inplace:Int=0, backup:String="", bufsize:Int=0) = {
     // FIXME!! Implement the various optional args, or at least some of them.
     // At least we probably want the encoding to work properly.
@@ -217,6 +221,14 @@ object NlpUtil {
   }
   //  return gopen(filename, mode=mode, encoding=encoding, errors=errors,
   //      chomp=chomp, inplace=inplace, backup=backup, bufsize=bufsize)
+  
+  /** Open a file for writing and return a PrintStream that will write to
+   *  this file in UTF-8.
+   */
+  def openw(filename:String, autoflush:Boolean=false) = new PrintStream(
+      new BufferedOutputStream(new FileOutputStream(filename)),
+      autoflush,
+      "UTF-8")
   
 //  // Open a filename and yield lines, but with any terminating newline
 //  // removed (similar to "chomp" in Perl).  Basically same as gopen() but
@@ -392,19 +404,24 @@ object NlpUtil {
     long_with_commas(intpart) + ("%.2f" format fracpart).drop(1)
   }
   
+  /**
+   *  Return the median value of a list.  List will be sorted, so this is O(n).
+   */
   def median(list:Seq[Double]) = {
-    "Return the median value of a sorted list."
-    var l = list.length
-    if (l % 2 == 1)
-      list(l / 2)
+    val sorted = list.sorted
+    val len = sorted.length
+    if (len % 2 == 1)
+      sorted(len / 2)
     else {
-      l = l / 2
-      0.5*(list(l-1) + list(l))
+      val midp = len / 2
+      0.5*(sorted(midp-1) + sorted(midp))
     }
   }
   
+  /**
+   *  Return the mean of a list.
+   */
   def mean(list:Seq[Double]) = {
-    "Return the mean of a list."
     list.sum / list.length
   }
   
@@ -440,8 +457,8 @@ object NlpUtil {
           re_split_with_delimiter("""([,;."):]*\s+[("]*)""".r, text)) yield
        Seq(word) ++ (
          for (p <- punc; if !(" \t\r\f\013" contains p)) yield (
-           if (p == '\n') (if (include_nl) p else "")
-           else (if (!ignore_punc) p else "")
+           if (p == '\n') (if (include_nl) p.toString else "")
+           else (if (!ignore_punc) p.toString else "")
          )
        )
     ) reduce (_ ++ _) filter (_ != "")
@@ -657,7 +674,7 @@ object NlpUtil {
   // rows.
   def output_reverse_sorted_list[T <% Ordered[T],U <% Ordered[U]](
       items:Seq[(T,U)],
-      outfile:PrintStream=System.out, indent:String="",
+      outfile:PrintStream=stdout_stream, indent:String="",
       keep_secondary_order:Boolean=false, maxrows:Int = -1) {
     var its = items
     if (!keep_secondary_order)
@@ -666,7 +683,7 @@ object NlpUtil {
     if (maxrows >= 0)
       its = its.slice(0, maxrows)
     for ((key, value) <- its)
-      uniprint("%s%s = %s" format (indent, key, value), outfile=outfile)
+      outfile.println("%s%s = %s" format (indent, key, value))
   }
   
   // Given a table with values that are numbers, output the table, sorted
@@ -711,20 +728,20 @@ object NlpUtil {
     def item_processed(maxtime:Double=0) = {
       val curtime = curtimesecs()
       items_processed += 1
-      val total_elapsed_secs =
-        (curtime - first_time) toInt
-      val last_elapsed_secs = (curtime - last_time).toInt
+      val total_elapsed_secs = curtime - first_time
+      val last_elapsed_secs = curtime - last_time
       if (last_elapsed_secs >= secs_between_output) {
         // Rather than directly recording the time, round it down to the
         // nearest multiple of secs_between_output; else we will eventually
         // see something like 0, 15, 45, 60, 76, 91, 107, 122, ...
         // rather than like 0, 15, 45, 60, 76, 90, 106, 120, ...
         val rounded_elapsed =
-          ((total_elapsed_secs / secs_between_output) *
+          ((total_elapsed_secs / secs_between_output).toInt *
            secs_between_output)
         last_time = first_time + rounded_elapsed
         errprint("Elapsed time: %s minutes %s seconds, %s %s processed",
-                 (total_elapsed_secs / 60).toInt, total_elapsed_secs % 60,
+                 (total_elapsed_secs / 60).toInt,
+                 (total_elapsed_secs % 60).toInt,
                  items_processed, item_unit())
       }
       if (maxtime > 0 && total_elapsed_secs >= maxtime) {
@@ -798,7 +815,7 @@ object NlpUtil {
   def output_options(op:OptionParser) {
     errprint("Parameter values:")
     for ((name, opt) <- op.get_argmap)
-      errprint("%30s: %s", name, op.value)
+      errprint("%30s: %s", name, opt.value)
     errprint("")
   }
   
@@ -812,7 +829,9 @@ object NlpUtil {
     // Things that may be overridden
     def output_parameters() {}
 
-    def need(errmsg:String) { op.need(errmsg) }
+    def need(arg: String, arg_english: String = null) {
+      op.need(arg, arg_english)
+    }
 
     def main() = {
       errprint("Beginning operation at %s" format curtimehuman())
@@ -917,12 +936,12 @@ object NlpUtil {
       update(kv._1, kv._2); this }
     def -= (key: T): this.type = { remove(key); this }
 
-    override def empty = new LRUCache[T,U]
+    override def empty = new LRUCache[T,U]()
     }
 
   // This whole object looks like boilerplate!  Why necessary?
   object LRUCache extends {
-    def empty[T,U] = new LRUCache[T,U]
+    def empty[T,U] = new LRUCache[T,U]()
 
     def apply[T,U](kvs: (T,U)*): LRUCache[T,U] = {
       val m: LRUCache[T,U] = empty
@@ -1051,7 +1070,7 @@ object NlpUtil {
   // it iter_ranges() when returning the lower bound of the lowest range,
   // and can be an item of any type, e.g. the number 0, the string "-infinity",
   // etc.
-  abstract class TableByRange[Coll,Numtype <% Ordered[Numtype]](
+  abstract class TableByRange[Coll <: AnyRef,Numtype <% Ordered[Numtype]](
     ranges:Seq[Numtype],
     create:()=>Coll
   ) {
@@ -1096,7 +1115,7 @@ object NlpUtil {
      'unseen_between' is true, only ranges between the lowest and highest
      actually-seen ranges will be returned.
      */
-    def iter_ranges(unseen_between:Boolean=true, unseen_all:Boolean=false) {
+    def iter_ranges(unseen_between:Boolean=true, unseen_all:Boolean=false) = {
       var highest_seen:Numtype = 0.asInstanceOf[Numtype]
       val iteration_range =
         (List(if (seen_negative) min_value else 0.asInstanceOf[Numtype]) ++
@@ -1109,7 +1128,8 @@ object NlpUtil {
   
       var seen_any = false
       for {(lower, upper) <- iteration_range
-           val collector = items_by_range.getOrElse(lower, null)
+           // FIXME SCALABUG: This is a bug in Scala if I have to do this
+           val collector = items_by_range.getOrElse(lower, null.asInstanceOf[Coll])
            if (collector != null || unseen_all ||
                (unseen_between && seen_any &&
                 upper != max_value && upper <= highest_seen))

@@ -1,6 +1,7 @@
 package opennlp.locamedia
 
 import Math._
+import NlpUtil.warning
 
 object Distances {
   /////////////////////////////////////////////////////////////////////////////
@@ -47,6 +48,11 @@ object Distances {
   // (however, that option is expressed in miles).
   var degrees_per_region = 0.0
   
+  val minimum_latitude = -90.0
+  val maximum_latitude = 90.0
+  val minimum_longitude = -180.0
+  val maximum_longitude = 180.0 - 1e-10
+
   // Minimum, maximum latitude/longitude in indices (integers used to index the
   // set of regions that tile the earth)
   var minimum_latind:Regind = 0
@@ -72,7 +78,6 @@ object Distances {
   //   lat, long: Latitude and longitude of coordinate.
 
   case class Coord(lat:Double, long:Double) {
-    import Coord._
     // Not sure why this code was implemented with coerce_within_bounds,
     // but either always coerce, or check the bounds ...
     require(lat >= minimum_latitude)
@@ -83,11 +88,6 @@ object Distances {
   }
 
   object Coord {
-    val minimum_latitude = -90.0
-    val maximum_latitude = 90.0
-    val minimum_longitude = -180.0
-    val maximum_longitude = 180.0 - 1e-10
-
     //// If coerce_within_bounds=true, then force the values to be within
     //// the allowed range, by wrapping longitude and bounding latitude.
     def apply(lat:Double, long:Double, coerce_within_bounds:Boolean) = {

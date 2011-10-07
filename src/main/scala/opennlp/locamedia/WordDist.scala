@@ -65,7 +65,7 @@ object WordDist {
   // value in 'globally_unseen_word_prob'.
   var overall_word_counts = intmap()
 
-  var overall_word_probs:Map[String,Double] = null
+  var overall_word_probs:mutable.Map[String,Double] = null
 
   // The total probability mass to be assigned to words not seen at all in
   // any article, estimated using Good-Turing smoothing as the unadjusted
@@ -85,9 +85,9 @@ object WordDist {
     globally_unseen_word_prob = (
       num_types_seen_once.toDouble/num_word_tokens)
     overall_word_probs =
-    for ((wordind,count) <- overall_word_probs)
-      yield (wordind, count.toDouble/num_word_tokens*
-                      (1 - globally_unseen_word_prob))
+      for ((wordind,count) <- overall_word_probs)
+        yield (wordind, count.toDouble/num_word_tokens*
+                        (1 - globally_unseen_word_prob))
     // A very rough estimate, perhaps totally wrong
     num_unseen_word_types = num_types_seen_once max (num_word_types/20)
     if (debug("tons"))
@@ -97,48 +97,53 @@ object WordDist {
 
 class WordDist {
   var finished = false
-  val counts = intmap()
+  var counts:mutable.Map[String,Int] = intmap()
   var unseen_mass = 0.5
   var total_tokens = 0
   var overall_unseen_mass = 1.0
 
-//  def __str__(self):
-//    finished = ""
-//    if not self.finished: finished = ", unfinished"
-//    num_words_to_print = 15
-//    items = list("%s=%s" % (word, count) for (word, count) in
-//        islice(self.counts.iteritems(), num_words_to_print + 1))
-//    if len(items) > num_words_to_print:
-//      items[-1] = "..."
-//    words = " ".join(items)
-//    return "WordDist(%d tokens, %.2f unseen mass%s, %s)" % (
-//        self.total_tokens, self.unseen_mass, finished, words)
-//
-//    /**
-// Set the word distribution from the given table of words and counts.
-//'total_tokens' is the total number of word tokens.  If 'note_globally',
-//add the word counts to the global word count statistics.
-//     */
-//  def set_word_distribution(self, total_tokens, wordhash, note_globally=true):
-//    if self.counts:
-//      warning("Article %s already has counts for it!" % art)
-//    self.total_tokens = total_tokens
-//    if note_globally:
-//      for (ind, count) in wordhash.iteritems():
-//        if ind not in WordDist.overall_word_probs:
-//          WordDist.num_word_types += 1
-//        // Record in overall_word_probs; note more tokens seen.
-//        WordDist.overall_word_probs[ind] += count
-//        WordDist.num_word_tokens += count
-//    self.counts = wordhash
-//
+    /**
+ Set the word distribution from the given table of words and counts.
+'total_tokens' is the total number of word tokens.  If 'note_globally',
+add the word counts to the global word count statistics.
+     */
+  def this(total_toks:Int, wordhash:mutable.Map[String,Int],
+      note_globally:Boolean=true) {
+    this()
+    total_tokens = total_toks
+    if (note_globally) {
+      for ((ind, count) <- wordhash) {
+        if (!(WordDist.overall_word_probs contains ind))
+          WordDist.num_word_types += 1
+        // Record in overall_word_probs; note more tokens seen.
+        WordDist.overall_word_probs(ind) += count
+        WordDist.num_word_tokens += count
+      }
+    }
+    counts = wordhash
+  }
+
+  def toString = {
+    val finished_str =
+      if (!finished) ", unfinished" else ""
+    val num_words_to_print = 15
+    val need_dots = counts.size > num_words_to_print
+    val items =
+      for ((word, count) <- counts.view(0, num_words_to_print))
+      yield "%s=%s" format (word, count) 
+    val words = (items mkString " ") + (if (need_dots) " ..." else "")
+    "WordDist(%d tokens, %.2f unseen mass%s, %s)" format (
+        total_tokens, unseen_mass, finished_str, words)
+  }
+
   /**
    * Incorporate a list of words into the distribution.
    */
-  def add_words(words:Traversable[String], ignoreCase:Boolean=true, stopwords:Set[String]=Set[String]()) {
+  def add_words(words:Traversable[String], ignore_case:Boolean=true,
+      stopwords:Set[String]=Set[String]()) {
     assert(!finished)
     for {word <- words
-         val wlower = if (ignoreCase) word.toLowerCase() else word
+         val wlower = if (ignore_case) word.toLowerCase() else word
          if !stopwords(wlower) }
       counts(word) += 1
       total_tokens += 1
@@ -350,6 +355,7 @@ other implementations.
     }
     retval
   }
+  
   def find_most_common_word(pred:String => Boolean) = {
     // Look for the most common word matching a given predicate.
     // But there may not be any.  max() will raise an error if given an
@@ -357,9 +363,9 @@ other implementations.
     // negative count.
     val (maxword, maxcount) =
       ((Seq((null, -1)) ++
-        (for ((word, count) <- worddist.counts if pred(word))
+        (for ((word, count) <- counts if pred(word))
            yield (word, count)))
-       maxBy (_._2 < _._2))
+       maxBy (_._2))
     maxword
   }
 }
